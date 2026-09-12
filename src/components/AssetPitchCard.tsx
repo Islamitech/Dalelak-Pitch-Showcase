@@ -21,7 +21,8 @@ import {
   copyImageToClipboard 
 } from '../utils/watermarkCanvasEngine';
 import { createWhatsAppDirectUrl } from '../utils/assetPitchMessageBuilder';
-import { WatermarkSettings } from '../types';
+import { DalilakBusiness, WatermarkSettings } from '../types';
+import { generateSmartWhatsAppPitch } from '../services/pitchAiService';
 
 interface AssetPitchCardProps {
   assetKey: 'logo' | 'catalog' | 'social_post' | 'promo_offer';
@@ -36,6 +37,7 @@ interface AssetPitchCardProps {
   clientPhone: string;
   businessName: string;
   watermarkSettings?: WatermarkSettings;
+  business?: DalilakBusiness;
 }
 
 export const AssetPitchCard: React.FC<AssetPitchCardProps> = ({
@@ -50,7 +52,8 @@ export const AssetPitchCard: React.FC<AssetPitchCardProps> = ({
   defaultMessageText,
   clientPhone,
   businessName,
-  watermarkSettings
+  watermarkSettings,
+  business
 }) => {
   const [viewMode, setViewMode] = useState<'watermarked' | 'original'>('watermarked');
   const [watermarkedDataUrl, setWatermarkedDataUrl] = useState<string>('');
@@ -60,11 +63,33 @@ export const AssetPitchCard: React.FC<AssetPitchCardProps> = ({
   const [customMessage, setCustomMessage] = useState(defaultMessageText);
   const [copiedText, setCopiedText] = useState(false);
   const [copiedImage, setCopiedImage] = useState(false);
+  const [isGeneratingAiMessage, setIsGeneratingAiMessage] = useState(false);
 
   // Update default message if business changes
   useEffect(() => {
     setCustomMessage(defaultMessageText);
   }, [defaultMessageText]);
+
+  const handleEnhanceWithAi = async () => {
+    if (!business) return;
+    setIsGeneratingAiMessage(true);
+    try {
+      const typeMap: Record<string, any> = {
+        logo: 'logo',
+        catalog: 'catalog',
+        social_post: 'post',
+        promo_offer: 'offer'
+      };
+      const aiText = await generateSmartWhatsAppPitch(business, typeMap[assetKey] || 'full');
+      if (aiText) {
+        setCustomMessage(aiText);
+      }
+    } catch (e) {
+      console.warn('AI enhance error:', e);
+    } finally {
+      setIsGeneratingAiMessage(false);
+    }
+  };
 
   // Generate watermarked image whenever original image changes
   useEffect(() => {
@@ -278,23 +303,37 @@ export const AssetPitchCard: React.FC<AssetPitchCardProps> = ({
                 <Send className="w-3.5 h-3.5 text-emerald-600" />
                 <span>رسالة الواتساب المرافقة لهذه الصورة:</span>
               </span>
-              <button
-                type="button"
-                onClick={handleCopyText}
-                className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer bg-white px-2 py-0.5 rounded-md border border-emerald-200"
-              >
-                {copiedText ? (
-                  <>
-                    <Check className="w-3 h-3 text-emerald-600" />
-                    <span>تم النسخ ✓</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3 h-3" />
-                    <span>نسخ النص</span>
-                  </>
+              <div className="flex items-center gap-1.5">
+                {business && (
+                  <button
+                    type="button"
+                    onClick={handleEnhanceWithAi}
+                    disabled={isGeneratingAiMessage}
+                    className="text-[11px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 flex items-center gap-1 cursor-pointer px-2.5 py-0.5 rounded-md border border-amber-300 transition"
+                    title="توليد رسالة مخصصة باللهجة المصرية بواسطة Gemini 3.6 Flash"
+                  >
+                    <Sparkles className={`w-3 h-3 text-amber-600 ${isGeneratingAiMessage ? 'animate-spin' : ''}`} />
+                    <span>{isGeneratingAiMessage ? 'جاري الصياغة...' : 'صياغة ذكية (AI)'}</span>
+                  </button>
                 )}
-              </button>
+                <button
+                  type="button"
+                  onClick={handleCopyText}
+                  className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer bg-white px-2 py-0.5 rounded-md border border-emerald-200"
+                >
+                  {copiedText ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-600" />
+                      <span>تم النسخ ✓</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3" />
+                      <span>نسخ النص</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* Editable Text Area */}

@@ -18,7 +18,9 @@ import {
   getCoreConfig, 
   saveCoreConfig, 
   getEcosystemConfig, 
-  saveEcosystemConfig 
+  saveEcosystemConfig,
+  getGeminiKey,
+  saveGeminiKey
 } from '../services/dalilakService';
 
 interface HeaderProps {
@@ -52,12 +54,14 @@ export const Header: React.FC<HeaderProps> = ({
   const [coreKey, setCoreKey] = useState(() => getCoreConfig().key);
   const [ecosystemUrl, setEcosystemUrl] = useState(() => getEcosystemConfig().url);
   const [ecosystemKey, setEcosystemKey] = useState(() => getEcosystemConfig().key);
+  const [geminiKey, setGeminiKey] = useState(() => getGeminiKey());
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     saveCoreConfig(coreUrl, coreKey);
     saveEcosystemConfig(ecosystemUrl, ecosystemKey);
+    saveGeminiKey(geminiKey);
     setSavedSuccess(true);
     setTimeout(() => {
       setSavedSuccess(false);
@@ -263,6 +267,22 @@ export const Header: React.FC<HeaderProps> = ({
                   onChange={(e) => setCoreKey(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 font-mono text-xs"
                 />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  مفتاح Google Gemini AI (لتوليد وتحسين رسائل الواتساب):
+                </label>
+                <input
+                  type="password"
+                  value={geminiKey}
+                  onChange={(e) => setGeminiKey(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 font-mono text-xs"
+                  placeholder="AQ... أو AIzaSy..."
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  مفتاحك السحابي مدمج تلقائياً (gemini-3.6-flash)، وتستطيع إدخال مفتاحك الخاص في أي وقت.
+                </p>
               </div>
 
               {savedSuccess && (

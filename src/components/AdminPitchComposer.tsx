@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
   Store, 
@@ -13,13 +13,16 @@ import {
   Sliders,
   CheckCircle2,
   Calendar,
-  Award
+  Award,
+  RefreshCw,
+  Database
 } from 'lucide-react';
 import { PitchPackage } from '../types';
 import { AssetPitchCard } from './AssetPitchCard';
 import { ServerTextPostsPanel } from './ServerTextPostsPanel';
 import { buildAssetPitchMessages } from '../utils/assetPitchMessageBuilder';
 import { getAcrylicMaterialStyles } from '../utils/mockupComposer';
+import { enrichPitchPackageWithEcosystemData } from '../services/dalilakService';
 
 interface AdminPitchComposerProps {
   pitch: PitchPackage;
@@ -84,6 +87,34 @@ export const AdminPitchComposer: React.FC<AdminPitchComposerProps> = ({
   };
 
   const standStyles = getAcrylicMaterialStyles(pitch.visualAssets.acrylicStand.material);
+
+  const [isSyncingEcosystem, setIsSyncingEcosystem] = useState(false);
+  const [ecosystemSyncStatus, setEcosystemSyncStatus] = useState<{
+    synced: boolean;
+    marketingFound: boolean;
+    visualFound: boolean;
+  }>({ synced: false, marketingFound: false, visualFound: false });
+
+  const triggerEcosystemSync = async () => {
+    setIsSyncingEcosystem(true);
+    try {
+      const result = await enrichPitchPackageWithEcosystemData(pitch);
+      onUpdatePitch(result.enrichedPitch);
+      setEcosystemSyncStatus({
+        synced: true,
+        marketingFound: result.marketingFound,
+        visualFound: result.visualFound
+      });
+    } catch (e) {
+      console.warn('Sync failed:', e);
+    } finally {
+      setIsSyncingEcosystem(false);
+    }
+  };
+
+  useEffect(() => {
+    triggerEcosystemSync();
+  }, [pitch.businessId]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -158,6 +189,48 @@ export const AdminPitchComposer: React.FC<AdminPitchComposerProps> = ({
         </div>
       </div>
 
+      {/* 2.5 Ecosystem Aggregator & Exclusive Gatekeeper Bar */}
+      <div className="p-4 bg-slate-900 text-white rounded-2xl shadow-md border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
+              <Database className="w-3 h-3" />
+              <span>مستودع المنظومة المساعد (Ecosystem Hub)</span>
+            </span>
+            <span className="text-slate-400 text-xs">
+              السيرفر: <code className="text-amber-300 font-mono text-[11px]">hzlbbzxccqfdeyumtxph</code>
+            </span>
+            {ecosystemSyncStatus.synced && (
+              <span className="bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                <span>
+                  {ecosystemSyncStatus.visualFound && ecosystemSyncStatus.marketingFound
+                    ? 'تم دمج مخرجات المرحلتين 1 و 2 بنجاح'
+                    : ecosystemSyncStatus.visualFound
+                    ? 'تم جلب تصاميم الهوية (المرحلة 2)'
+                    : ecosystemSyncStatus.marketingFound
+                    ? 'تم جلب خطة التسويق (المرحلة 1)'
+                    : 'سيرفر المساعدين جاهز ومتصل'}
+                </span>
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-300">
+            <strong className="text-amber-300">بوابة التأكيد والنقل الحصرية:</strong> هذه المرحلة (المرحلة 3) هي البوابة الوحيدة المخولة بنقل وتأكيد بيانات المنظومة إلى السيرفر الأساسي لدليلك بعد موافقة العميل.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={triggerEcosystemSync}
+          disabled={isSyncingEcosystem}
+          className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isSyncingEcosystem ? 'animate-spin' : ''}`} />
+          <span>{isSyncingEcosystem ? 'جاري المزامنة...' : 'مزامنة مخرجات المنظومة'}</span>
+        </button>
+      </div>
+
       {/* 3. The 4 Protected Visual Asset Pitch Cards */}
       <div className="space-y-6">
         <div className="flex items-center justify-between border-b border-slate-200 pb-3">
@@ -186,6 +259,7 @@ export const AdminPitchComposer: React.FC<AdminPitchComposerProps> = ({
           clientPhone={bizPhone}
           businessName={bizName}
           watermarkSettings={pitch.watermarkSettings}
+          business={biz}
         />
 
         {/* Card 2: Catalog / Services Price Menu */}
@@ -202,6 +276,7 @@ export const AdminPitchComposer: React.FC<AdminPitchComposerProps> = ({
           clientPhone={bizPhone}
           businessName={bizName}
           watermarkSettings={pitch.watermarkSettings}
+          business={biz}
         />
 
         {/* Card 3: Social Media Branded Post */}
@@ -218,6 +293,7 @@ export const AdminPitchComposer: React.FC<AdminPitchComposerProps> = ({
           clientPhone={bizPhone}
           businessName={bizName}
           watermarkSettings={pitch.watermarkSettings}
+          business={biz}
         />
 
         {/* Card 4: Promotional Discount Banner */}
@@ -234,6 +310,7 @@ export const AdminPitchComposer: React.FC<AdminPitchComposerProps> = ({
           clientPhone={bizPhone}
           businessName={bizName}
           watermarkSettings={pitch.watermarkSettings}
+          business={biz}
         />
       </div>
 
