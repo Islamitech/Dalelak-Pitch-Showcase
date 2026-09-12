@@ -4,9 +4,26 @@ import { DalilakBusiness, PitchPackage, PromoteLeadPayload, WatermarkSettings } 
 const DEFAULT_CORE_URL = 'https://xdqpbajymacpdccorjcj.supabase.co';
 const DEFAULT_CORE_KEY = 'sb_publishable_VJ8y1c53by7_sEn90hy8Pw_vO_K_b2x';
 
-const STORAGE_KEY_CORE_URL = 'dalilak_core_url';
-const STORAGE_KEY_CORE_KEY = 'dalilak_core_key';
+// Default Supabase configuration for Ecosystem Staging Server (Helper Apps Output)
+export const DEFAULT_ECOSYSTEM_URL = 'https://hzlbbzxccqfdeyumtxph.supabase.co';
+export const DEFAULT_ECOSYSTEM_KEY = '';
+
+const STORAGE_KEY_CORE_URL = 'dalelak_core_url';
+const STORAGE_KEY_CORE_KEY = 'dalelak_core_key';
+const STORAGE_KEY_ECOSYSTEM_URL = 'dalelak_ecosystem_url';
+const STORAGE_KEY_ECOSYSTEM_KEY = 'dalelak_ecosystem_key';
 const STORAGE_KEY_SAVED_PITCHES = 'dalilak_pitch_packages_store';
+
+export function getEcosystemConfig() {
+  const url = localStorage.getItem(STORAGE_KEY_ECOSYSTEM_URL) || (import.meta as any).env?.VITE_ECOSYSTEM_SUPABASE_URL || DEFAULT_ECOSYSTEM_URL;
+  const key = localStorage.getItem(STORAGE_KEY_ECOSYSTEM_KEY) || (import.meta as any).env?.VITE_ECOSYSTEM_SUPABASE_ANON_KEY || DEFAULT_ECOSYSTEM_KEY;
+  return { url: url.trim().replace(/\/+$/, ''), key: key.trim() };
+}
+
+export function saveEcosystemConfig(url: string, key: string) {
+  if (url) localStorage.setItem(STORAGE_KEY_ECOSYSTEM_URL, url.trim());
+  if (key) localStorage.setItem(STORAGE_KEY_ECOSYSTEM_KEY, key.trim());
+}
 
 export function getCoreConfig() {
   const url = localStorage.getItem(STORAGE_KEY_CORE_URL) || (import.meta as any).env?.VITE_DALILAK_SUPABASE_URL || DEFAULT_CORE_URL;
@@ -359,9 +376,72 @@ export function savePitchPackage(pitch: PitchPackage) {
       existing.unshift(pitch);
     }
     localStorage.setItem(STORAGE_KEY_SAVED_PITCHES, JSON.stringify(existing));
+
+    // Asynchronously sync to Ecosystem Supabase Server (hzlbbzxccqfdeyumtxph)
+    const { url, key } = getEcosystemConfig();
+    if (url && key) {
+      const endpoint = `${url}/rest/v1/pitch_packages`;
+      const payload = {
+        id: pitch.id,
+        business_id: pitch.businessId,
+        business_name: pitch.business.name_ar || pitch.business.name_en || 'النشاط',
+        client_token: pitch.clientToken,
+        theme_color: pitch.themeColor,
+        headline: pitch.headline,
+        subheadline: pitch.subheadline,
+        package_name: pitch.packageName,
+        original_price: pitch.originalPrice,
+        discounted_price: pitch.discountedPrice,
+        currency: pitch.currency,
+        visual_assets: pitch.visualAssets,
+        deliverables: pitch.deliverables,
+        watermark_settings: pitch.watermarkSettings,
+        status: pitch.status,
+        updated_at: new Date().toISOString()
+      };
+
+      fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'apikey': key,
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify(payload)
+      }).catch(err => console.warn('Sync to pitch_packages failed:', err));
+    }
   } catch (e) {
     console.error('Error saving pitch package:', e);
   }
+}
+
+/**
+ * Fetches real marketing plan and ready posts from Ecosystem Supabase Server
+ */
+export async function fetchEcosystemMarketingActivity(businessId: string): Promise<any | null> {
+  const { url, key } = getEcosystemConfig();
+  if (!url || !key) return null;
+  try {
+    const endpoint = `${url}/rest/v1/marketing_activities?business_id=eq.${encodeURIComponent(businessId)}`;
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'apikey': key,
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data[0];
+      }
+    }
+  } catch (err) {
+    // Ignore network error
+  }
+  return null;
 }
 
 export function getSavedPitchPackages(): PitchPackage[] {

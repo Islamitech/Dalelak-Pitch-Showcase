@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
   Send, 
@@ -9,13 +9,15 @@ import {
   Layers, 
   Share2, 
   Clock, 
-  FileText,
-  MessageSquare,
-  Flame,
-  CheckCircle2
+  FileText, 
+  MessageSquare, 
+  Flame, 
+  CheckCircle2,
+  RefreshCw
 } from 'lucide-react';
 import { DalilakBusiness, PitchPackage } from '../types';
 import { createWhatsAppDirectUrl } from '../utils/assetPitchMessageBuilder';
+import { fetchEcosystemMarketingActivity } from '../services/dalilakService';
 
 interface ServerTextPostsPanelProps {
   pitch: PitchPackage;
@@ -30,6 +32,75 @@ export const ServerTextPostsPanel: React.FC<ServerTextPostsPanelProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'calendar' | 'ready_posts'>('calendar');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [dataSource, setDataSource] = useState<'local' | 'cloud' | 'default'>('default');
+
+  const [calendarDays, setCalendarDays] = useState<any[]>(() => pitch.visualAssets.contentPlanSnippet || []);
+  const [readyPosts, setReadyPosts] = useState<any[]>(() => pitch.visualAssets.socialMockupPosts || []);
+
+  const syncMarketingData = async () => {
+    setIsSyncing(true);
+    try {
+      // 1. Check local storage first
+      const mktKey = `dalelak_marketing_progress_${pitch.business.id}`;
+      const rawMkt = localStorage.getItem(mktKey);
+      if (rawMkt) {
+        const mkt = JSON.parse(rawMkt);
+        if (mkt.calendar && Array.isArray(mkt.calendar) && mkt.calendar.length > 0) {
+          setCalendarDays(mkt.calendar.map((c: any) => ({
+            day: c.day,
+            pillar: c.pillarTitle || c.pillar,
+            title: c.headline || c.title,
+            hook: c.hookText || c.hook,
+            callToAction: c.callToAction
+          })));
+          setDataSource('local');
+        }
+        if (mkt.readyPosts && Array.isArray(mkt.readyPosts) && mkt.readyPosts.length > 0) {
+          setReadyPosts(mkt.readyPosts.map((p: any, i: number) => ({
+            id: p.id || `post_${i}`,
+            headline: p.title || p.headline,
+            caption: p.content || p.caption,
+            accent: i === 0 ? 'amber' : i === 1 ? 'emerald' : 'blue',
+            tag: p.badge || p.platform || 'إعلان ترويجي'
+          })));
+        }
+      }
+
+      // 2. Fetch from Ecosystem Supabase Server (hzlbbzxccqfdeyumtxph)
+      const remoteData = await fetchEcosystemMarketingActivity(pitch.business.id);
+      if (remoteData) {
+        if (remoteData.calendar && Array.isArray(remoteData.calendar) && remoteData.calendar.length > 0) {
+          setCalendarDays(remoteData.calendar.map((c: any) => ({
+            day: c.day,
+            pillar: c.pillarTitle || c.pillar,
+            title: c.headline || c.title,
+            hook: c.hookText || c.hook,
+            callToAction: c.callToAction
+          })));
+          setDataSource('cloud');
+        }
+        if (remoteData.ready_posts && Array.isArray(remoteData.ready_posts) && remoteData.ready_posts.length > 0) {
+          setReadyPosts(remoteData.ready_posts.map((p: any, i: number) => ({
+            id: p.id || `post_${i}`,
+            headline: p.title || p.headline,
+            caption: p.content || p.caption,
+            accent: i === 0 ? 'amber' : i === 1 ? 'emerald' : 'blue',
+            tag: p.badge || p.platform || 'إعلان ترويجي'
+          })));
+          setDataSource('cloud');
+        }
+      }
+    } catch (e) {
+      console.warn('Sync error:', e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  useEffect(() => {
+    syncMarketingData();
+  }, [pitch.business.id]);
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -67,19 +138,35 @@ ${post.caption}
 ✨ كل بوست بيتصمم ليه إطار رسمي باللوجو وهاشتاجات موجهة لسكان منطقتكم لزيادة التفاعل! 🤝`;
   };
 
-  const calendarDays = pitch.visualAssets.contentPlanSnippet || [];
-  const readyPosts = pitch.visualAssets.socialMockupPosts || [];
-
   return (
     <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden space-y-4 p-5">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-black text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
-              بيانات مسحوبة من السيرفر • استوديو التسويق
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-xs font-black px-2.5 py-0.5 rounded-full border ${
+              dataSource === 'cloud'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : dataSource === 'local'
+                ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                : 'bg-slate-100 text-slate-700 border-slate-200'
+            }`}>
+              {dataSource === 'cloud' 
+                ? 'متزامن مع سيرفر المنظومة السحابي ☁️'
+                : dataSource === 'local'
+                ? 'مخزن محلياً من استوديو التسويق 💾'
+                : 'البيانات التلقائية'}
             </span>
+            <button
+              onClick={syncMarketingData}
+              disabled={isSyncing}
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-600 hover:text-sky-800 bg-sky-50 px-2 py-0.5 rounded-md hover:bg-sky-100 transition-colors"
+              title="سحب أحدث بيانات من سيرفر المنظومة"
+            >
+              <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>{isSyncing ? 'جاري السحب...' : 'تحديث من السيرفر'}</span>
+            </button>
             <h3 className="text-base font-black text-slate-900">
               المنشورات النصية وخطة المحتوى التسويقي
             </h3>
@@ -101,7 +188,7 @@ ${post.caption}
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
-            <span>خطة الـ 30 يوماً (${calendarDays.length})</span>
+            <span>خطة الـ 30 يوماً ({calendarDays.length})</span>
           </button>
           <button
             type="button"
@@ -113,7 +200,7 @@ ${post.caption}
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>البوستات الإعلانية الجاهزة (${readyPosts.length})</span>
+            <span>البوستات الإعلانية الجاهزة ({readyPosts.length})</span>
           </button>
         </div>
       </div>

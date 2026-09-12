@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Sparkles, 
   Store, 
@@ -9,9 +9,17 @@ import {
   ShieldCheck, 
   Database, 
   Activity,
-  Smartphone
+  Smartphone,
+  Settings,
+  X
 } from 'lucide-react';
 import { PitchPackage, TrackingSession } from '../types';
+import { 
+  getCoreConfig, 
+  saveCoreConfig, 
+  getEcosystemConfig, 
+  saveEcosystemConfig 
+} from '../services/dalilakService';
 
 interface HeaderProps {
   currentPitch: PitchPackage;
@@ -38,6 +46,24 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const activeNowCount = liveSessions.filter(s => s.isLiveNow).length;
   const bizName = currentPitch.business.name_ar || currentPitch.business.name_en || 'النشاط التجاري';
+
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [coreUrl, setCoreUrl] = useState(() => getCoreConfig().url);
+  const [coreKey, setCoreKey] = useState(() => getCoreConfig().key);
+  const [ecosystemUrl, setEcosystemUrl] = useState(() => getEcosystemConfig().url);
+  const [ecosystemKey, setEcosystemKey] = useState(() => getEcosystemConfig().key);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
+  const handleSaveSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveCoreConfig(coreUrl, coreKey);
+    saveEcosystemConfig(ecosystemUrl, ecosystemKey);
+    setSavedSuccess(true);
+    setTimeout(() => {
+      setSavedSuccess(false);
+      setShowSettingsModal(false);
+    }, 1500);
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs transition-colors duration-200">
@@ -139,6 +165,15 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="hidden sm:inline">رسالة واتساب العميل</span>
             </button>
 
+            {/* Settings Modal Toggle */}
+            <button
+              onClick={() => setShowSettingsModal(true)}
+              title="إعدادات السيرفرات وقواعد البيانات"
+              className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 hover:text-slate-900 transition-colors cursor-pointer"
+            >
+              <Settings className="w-5 h-5 text-slate-600" />
+            </button>
+
             {/* Promote to Core Modal */}
             <button
               onClick={onOpenPromoteModal}
@@ -152,6 +187,110 @@ export const Header: React.FC<HeaderProps> = ({
 
         </div>
       </div>
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 border border-slate-200 shadow-2xl text-right space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-amber-100 text-amber-800">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">إعدادات السيرفرات وقواعد البيانات</h3>
+                  <p className="text-xs text-slate-500">Supabase Multi-Tier Server Configuration</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSettings} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  1. سيرفر مخرجات التطبيقات المساعدة (Dedicated Ecosystem Server):
+                </label>
+                <input
+                  type="text"
+                  value={ecosystemUrl}
+                  onChange={(e) => setEcosystemUrl(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 font-mono text-xs"
+                  placeholder="https://hzlbbzxccqfdeyumtxph.supabase.co"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  مفتاح سيرفر المخرجات (Ecosystem Anon Key):
+                </label>
+                <input
+                  type="password"
+                  value={ecosystemKey}
+                  onChange={(e) => setEcosystemKey(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 font-mono text-xs"
+                  placeholder="أدخل مفتاح Supabase Anon Key الخاص بالمشروع hzlbbzxccqfdeyumtxph"
+                />
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  تجد المفتاح في: Supabase Dashboard &gt; Project Settings &gt; API &gt; anon public
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100">
+                <label className="block font-bold text-slate-700 mb-1">
+                  2. السيرفر الأساسي لدليلك (Core Production Server):
+                </label>
+                <input
+                  type="text"
+                  value={coreUrl}
+                  onChange={(e) => setCoreUrl(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 font-mono text-xs"
+                  placeholder="https://xdqpbajymacpdccorjcj.supabase.co"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  مفتاح السيرفر الأساسي (Core Anon Key):
+                </label>
+                <input
+                  type="password"
+                  value={coreKey}
+                  onChange={(e) => setCoreKey(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 font-mono text-xs"
+                />
+              </div>
+
+              {savedSuccess && (
+                <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>تم حفظ وتحديث إعدادات السيرفر بنجاح!</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowSettingsModal(false)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold shadow-xs"
+                >
+                  حفظ الإعدادات
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Mobile Mode Switcher Bar */}
       <div className="md:hidden flex items-center justify-around bg-slate-50 border-t border-slate-200 px-3 py-1.5">
