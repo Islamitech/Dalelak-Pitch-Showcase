@@ -204,7 +204,16 @@ export const AdminPitchComposer: React.FC<AdminPitchComposerProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+        <div className="flex items-center gap-2 w-full md:w-auto shrink-0 flex-wrap">
+          <button
+            type="button"
+            onClick={onOpenWhatsAppModal}
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-5 py-3 rounded-xl shadow-md transition cursor-pointer"
+          >
+            <Send className="w-4 h-4" />
+            <span>إرسال المعاينة لواتساب النشاط 💬</span>
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -215,7 +224,7 @@ export const AdminPitchComposer: React.FC<AdminPitchComposerProps> = ({
             className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-4 py-3 rounded-xl shadow-md transition cursor-pointer"
           >
             {copiedLink ? <Check className="w-4 h-4 text-slate-950" /> : <Copy className="w-4 h-4 text-slate-950" />}
-            <span>{copiedLink ? 'تم نسخ الرابط!' : 'نسخ رابط المعاينة'}</span>
+            <span>{copiedLink ? 'تم نسخ الرابط!' : 'نسخ الرابط'}</span>
           </button>
 
           <a

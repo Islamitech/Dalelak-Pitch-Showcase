@@ -1,7 +1,7 @@
 import { PitchPackage } from '../types';
 import { getShareablePreviewUrl } from '../services/dalilakService';
 
-export type PitchMessageTone = 'authority' | 'gift' | 'urgent';
+export type PitchMessageTone = 'teaser' | 'quick' | 'authority' | 'gift' | 'urgent';
 
 export interface GeneratedPitchMessage {
   id: PitchMessageTone;
@@ -23,7 +23,38 @@ export function buildPitchMessages(
   // Construct shareable pitch link with full business ID & pitch token
   const pitchUrl = getShareablePreviewUrl(pkg);
 
-  // Tone 1: Authority & Opportunity
+  // Tone 1 (PRIMARY): Curiosity Teaser & Motivational Hook (بسيطة ومحفزة)
+  const textTeaser = `
+السلام عليكم ورحمة الله ${ownerName} 🌸
+مع حضرتك ${repName} من «منظومة دليلك للمنشآت التجارية» 🇪🇬.
+
+فريقنا جهز لحضرتك مجاناً *معاينة بصرية وتوثيقاً حصرياً* خاصاً بـ *«${bizName}»* في ${city} جاهز للعرض الآن:
+👑 الشعار الرقمي المعتمد بدقة عالية
+📋 كتالوج وقائمة الخدمات والأسعار
+📱 قوالب منشورات وبانرات إعلانية
+🪪 عينة استاند الأكريليك المكتبي الذكي بـ QR كود
+🗺️ خطة تصدر المركز الأول على Google Maps
+
+👀 ده رابط المعاينة السري والمؤمن الخاص بنشاطك، تقدر تفتحه على موبايلك بلمسة واحدة (متاح لمدة 48 ساعة فقط لحفظ حصرية قطاعكم بالحي):
+👇
+${pitchUrl}
+
+يسعدنا جداً رأي حضرتك، وبانتظار تشريفك للمعاينة! 🤝✨
+`.trim();
+
+  // Tone 2: Ultra Quick Teaser (خاطفة 30 ثانية)
+  const textQuick = `
+مساء الخير ${ownerName} 🌹
+عملنا لحضرتك معاينة حصرية لهوية وتصدر *«${bizName}»*، مع عينة استاند أكريليك مكتبي ذكي بـ QR كود وخطة خرائط Google.
+
+تقدر تشوف الشغل المجهز لنشاطك في دقيقة واحدة على موبايلك من الرابط ده:
+👇
+${pitchUrl}
+
+شرفنا برأيك الجميل ويسعدنا تواصلك! ✨
+`.trim();
+
+  // Tone 3: Authority & Opportunity
   const textAuthority = `
 مساء الخير ${ownerName} 🌸
 مع حضرتك ${repName} من فريق التوثيق والتسويق الرقمي بـ منصة دليلك 🇪🇬.
@@ -42,7 +73,7 @@ ${pitchUrl}
 يسعدني أسمع رأي حضرتك بعد ما تشوف المعاينة! ✨
 `.trim();
 
-  // Tone 2: Gift & Value-first
+  // Tone 4: Gift & Value-first
   const textGift = `
 السلام عليكم ورحمة الله ${ownerName} 💎
 أهلاً بحضرتك.. أنا ${repName} من منصة دليلك.
@@ -60,7 +91,7 @@ ${pitchUrl}
 العينة مؤمنة خصيصاً لحضرتك وباسم نشاطك. شرفنا برأيك الجميل! 🤝
 `.trim();
 
-  // Tone 3: Urgent FOMO & Exclusive Discount
+  // Tone 5: Urgent FOMO & Exclusive Discount
   const textUrgent = `
 فرصة خاصة ومحدودة لـ *«${bizName}»* في ${city} 🔥
 
@@ -81,23 +112,37 @@ ${pitchUrl}
 
   return [
     {
+      id: 'teaser',
+      titleAr: 'رسالة التحفيز والفضول الخاطفة',
+      badge: 'موصى بها لفتح الرابط 🚀',
+      text: textTeaser,
+      waUrl: createWhatsAppLink(clientPhone, textTeaser)
+    },
+    {
+      id: 'quick',
+      titleAr: 'رسالة الدقيقة الواحدة السريعة',
+      badge: 'قصيرة ومباشرة ⚡',
+      text: textQuick,
+      waUrl: createWhatsAppLink(clientPhone, textQuick)
+    },
+    {
       id: 'authority',
       titleAr: 'رسالة الصدارة والفرصة الاستراتيجية',
-      badge: 'الأعلى تحويلاً 🎯',
+      badge: 'الأعلى وقاراً 🎯',
       text: textAuthority,
       waUrl: createWhatsAppLink(clientPhone, textAuthority)
     },
     {
       id: 'gift',
-      titleAr: 'رسالة الهدية والعينة الترويجية الجاهزة',
-      badge: 'ودودة وجذابة 🎁',
+      titleAr: 'رسالة الهدية والعينة الترويجية',
+      badge: 'ودودة ومجانية 🎁',
       text: textGift,
       waUrl: createWhatsAppLink(clientPhone, textGift)
     },
     {
       id: 'urgent',
-      titleAr: 'رسالة العرض الحصري والخصم المؤقت',
-      badge: 'تحفيز فوري 🔥',
+      titleAr: 'رسالة الخصم الحصري ومؤقت الحجز',
+      badge: 'تحفيز استعجال 🔥',
       text: textUrgent,
       waUrl: createWhatsAppLink(clientPhone, textUrgent)
     }
