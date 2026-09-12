@@ -47,7 +47,8 @@ import {
   recordClientWhatsAppCta 
 } from '../services/leadTrackingService';
 import { 
-  generateWatermarkPatternSvg, 
+  generateSubtlePageWatermarkSvg,
+  generateStrongWatermarkPatternSvg,
   attachAntiTheftDefense 
 } from '../utils/watermarkEngine';
 import { 
@@ -141,8 +142,14 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
     });
   };
 
-  const watermarkSvgUrl = pitch.watermarkSettings.enabled
-    ? generateWatermarkPatternSvg(pitch.watermarkSettings)
+  // Subtle, weak watermark pattern for the entire page background
+  const pageWatermarkSvgUrl = pitch.watermarkSettings.enabled
+    ? generateSubtlePageWatermarkSvg(pitch.watermarkSettings)
+    : '';
+
+  // Strong, high-contrast watermark pattern exclusively for image previews and lightbox
+  const strongWatermarkSvgUrl = pitch.watermarkSettings.enabled
+    ? generateStrongWatermarkPatternSvg(pitch.watermarkSettings)
     : '';
 
   // 4. Construct Protected Visual Assets Catalog
@@ -353,25 +360,25 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
   return (
     <div className="relative min-h-screen bg-slate-50 text-slate-900 selection:bg-amber-500 selection:text-white anti-theft-shield pb-28">
       
-      {/* 🛡️ LAYER 1: Continuous High-Contrast Watermark Pattern */}
+      {/* 🛡️ LAYER 1: Subtle Page Ambient Watermark (Weak, Delicate Slate, Non-Intrusive) */}
       {pitch.watermarkSettings.enabled && (
         <div
-          className="fixed inset-0 pointer-events-none z-30 opacity-70"
+          className="fixed inset-0 pointer-events-none z-0 opacity-40"
           style={{
-            backgroundImage: `url("${watermarkSvgUrl}")`,
+            backgroundImage: `url("${pageWatermarkSvgUrl}")`,
             backgroundRepeat: 'repeat'
           }}
         />
       )}
 
       {/* Top Client VIP Notification Bar */}
-      <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white px-4 py-2.5 text-center text-xs font-bold shadow-md flex items-center justify-center gap-2 border-b border-amber-500/40">
+      <div className="relative z-10 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white px-4 py-2.5 text-center text-xs font-bold shadow-md flex items-center justify-center gap-2 border-b border-amber-500/40">
         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
         <span className="text-amber-400 font-black">تقرير واعتماد حصري:</span>
         <span>خاص بنشاط <strong>«{bizName}»</strong> • متاح للحجز المعتمد لمدة 48 ساعة فقط</span>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+      <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
         
         {/* HERO SECTION: Tailored Agency Pitch */}
         <section 
@@ -493,12 +500,12 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
                     className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-105 pointer-events-none"
                   />
 
-                  {/* 1. Repeating Diagonal Watermark Pattern */}
+                  {/* 1. Repeating Strong Diagonal Watermark Pattern */}
                   {pitch.watermarkSettings.enabled && (
                     <div
-                      className="absolute inset-0 pointer-events-none opacity-80 z-10"
+                      className="absolute inset-0 pointer-events-none opacity-85 z-10"
                       style={{
-                        backgroundImage: `url("${watermarkSvgUrl}")`,
+                        backgroundImage: `url("${strongWatermarkSvgUrl}")`,
                         backgroundRepeat: 'repeat'
                       }}
                     />
@@ -1143,12 +1150,12 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
                 className="max-h-[65vh] max-w-full object-contain rounded-xl shadow-2xl pointer-events-none select-none"
               />
 
-              {/* 1. High-Visibility Diagonal Watermark Pattern */}
+              {/* 1. High-Visibility Diagonal Watermark Pattern (Strong on Fullscreen Image Preview) */}
               {pitch.watermarkSettings.enabled && (
                 <div
-                  className="absolute inset-0 pointer-events-none opacity-85 z-10"
+                  className="absolute inset-0 pointer-events-none opacity-90 z-10"
                   style={{
-                    backgroundImage: `url("${watermarkSvgUrl}")`,
+                    backgroundImage: `url("${strongWatermarkSvgUrl}")`,
                     backgroundRepeat: 'repeat'
                   }}
                 />

@@ -2,12 +2,12 @@ import { WatermarkSettings } from '../types';
 
 /**
  * Generates an SVG Data URL containing a repeating diagonal pattern of watermark text
+ * Strongly visible with dual-stroke contrast for image overlays and full previews
  */
-export function generateWatermarkPatternSvg(settings: WatermarkSettings): string {
+export function generateStrongWatermarkPatternSvg(settings: WatermarkSettings): string {
   const primaryText = escapeXml(settings.text || 'معاينة خاصة • دليلك للمنظومة الذكية');
   const secondaryText = escapeXml(settings.secondaryText || 'عينة مؤمنة ضد الاستخدام قبل التعاقد');
-  // High-visibility opacity (0.38 - 0.75) so it is impossible to miss on any background
-  const opacity = Math.min(Math.max(settings.opacity || 0.42, 0.30), 0.80);
+  const opacity = Math.min(Math.max(settings.opacity || 0.45, 0.35), 0.85);
   const angle = settings.angle || -26;
   const fontSize = settings.fontSize || 14;
 
@@ -29,7 +29,7 @@ export function generateWatermarkPatternSvg(settings: WatermarkSettings): string
         .wm-main { 
           fill: #dc2626; 
           stroke: #ffffff; 
-          stroke-width: 1.6px; 
+          stroke-width: 1.8px; 
           paint-order: stroke fill;
           font-family: 'Cairo', system-ui, sans-serif; 
           font-weight: 900; 
@@ -38,7 +38,7 @@ export function generateWatermarkPatternSvg(settings: WatermarkSettings): string
         .wm-sub { 
           fill: #0f172a; 
           stroke: #ffffff; 
-          stroke-width: 1.3px; 
+          stroke-width: 1.4px; 
           paint-order: stroke fill;
           font-family: 'Cairo', system-ui, sans-serif; 
           font-weight: 800; 
@@ -55,6 +55,49 @@ export function generateWatermarkPatternSvg(settings: WatermarkSettings): string
 
   return `data:image/svg+xml;utf8,${encodeURIComponent(svgString)}`;
 }
+
+/**
+ * Generates an ultra-subtle, elegant, faint SVG watermark pattern for the entire page background.
+ * It provides intellectual property protection without obstructing readability of text or cards.
+ */
+export function generateSubtlePageWatermarkSvg(settings: WatermarkSettings): string {
+  const primaryText = escapeXml(settings.text || 'معاينة خاصة • دليلك للمنظومة الذكية');
+  const secondaryText = escapeXml(settings.secondaryText || 'عينة تجريبية مؤمنة');
+  const angle = settings.angle || -24;
+  const fontSize = 12;
+
+  const patternWidth = 380;
+  const patternHeight = 220;
+
+  const svgString = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${patternWidth}" height="${patternHeight}">
+      <style>
+        .page-wm-main { 
+          fill: rgba(148, 163, 184, 0.16); 
+          font-family: 'Cairo', system-ui, -apple-system, sans-serif; 
+          font-weight: 700; 
+          font-size: ${fontSize}px; 
+          letter-spacing: 0.3px;
+        }
+        .page-wm-sub { 
+          fill: rgba(148, 163, 184, 0.10); 
+          font-family: 'Cairo', system-ui, -apple-system, sans-serif; 
+          font-weight: 600; 
+          font-size: ${fontSize - 2}px; 
+        }
+      </style>
+      <g transform="rotate(${angle} ${patternWidth / 2} ${patternHeight / 2})">
+        <text x="50%" y="44%" text-anchor="middle" class="page-wm-main">دليلك • ${primaryText}</text>
+        <text x="50%" y="66%" text-anchor="middle" class="page-wm-sub">${secondaryText}</text>
+      </g>
+    </svg>
+  `.trim();
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svgString)}`;
+}
+
+// Backward-compatible alias (defaults to strong watermark for images)
+export const generateWatermarkPatternSvg = generateStrongWatermarkPatternSvg;
 
 /**
  * Attaches anti-theft defense event listeners (blocking right click, print, copy shortcuts)
