@@ -28,7 +28,7 @@ export interface WatermarkSettings {
   enabled: boolean;
   text: string;
   secondaryText: string;
-  opacity: number; // 0.05 to 0.4
+  opacity: number; // 0.1 to 0.85
   angle: number; // -45 to 45
   fontSize: number;
   density: 'sparse' | 'medium' | 'dense';

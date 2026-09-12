@@ -136,11 +136,11 @@ export function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col antialiased">
       
-      {/* Floating Mode Switcher if in client mode */}
-      {mode === 'client' && (
+      {/* Floating Mode Switcher ONLY when testing locally in admin, NEVER in client standalone preview */}
+      {mode === 'client' && !isClientStandalone && (
         <div className="fixed top-3 left-3 z-50 flex items-center gap-2 bg-slate-950/90 backdrop-blur-md text-white px-3 py-1.5 rounded-full shadow-lg border border-slate-700 text-xs font-bold">
           <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-          <span>معاينة العميل</span>
+          <span>معاينة العميل التجريبية</span>
           <button
             onClick={() => setMode('admin')}
             className="text-amber-400 hover:text-white underline mr-2 cursor-pointer font-extrabold flex items-center gap-1"

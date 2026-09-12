@@ -49,17 +49,17 @@ export async function stampWatermarkOnImage(
   // 2. Prepare watermark parameters
   const primaryText = options?.primaryText || 'معاينة خاصة • غير مصرح بالنشر قبل التعاقد';
   const secondaryText = options?.secondaryText || 'منظومة دليلك • حقوق التصميم والتنفيذ محفوظة';
-  const opacity = Math.min(Math.max(options?.opacity ?? 0.24, 0.08), 0.5);
+  const opacity = Math.min(Math.max(options?.opacity ?? 0.50, 0.25), 0.85);
   const angleDeg = options?.angle ?? -28;
   const angleRad = (angleDeg * Math.PI) / 180;
 
   // Responsive font scaling based on image width
-  const baseFontSize = options?.fontSize || Math.max(Math.round(width / 32), 16);
+  const baseFontSize = options?.fontSize || Math.max(Math.round(width / 28), 18);
   const density = options?.density || 'medium';
 
   // Step spacing between diagonal repetitions
-  const stepX = density === 'dense' ? baseFontSize * 12 : density === 'sparse' ? baseFontSize * 22 : baseFontSize * 16;
-  const stepY = density === 'dense' ? baseFontSize * 7 : density === 'sparse' ? baseFontSize * 12 : baseFontSize * 9;
+  const stepX = density === 'dense' ? baseFontSize * 13 : density === 'sparse' ? baseFontSize * 22 : baseFontSize * 16;
+  const stepY = density === 'dense' ? baseFontSize * 7.5 : density === 'sparse' ? baseFontSize * 13 : baseFontSize * 9.5;
 
   // 3. Draw Repeating Diagonal Watermark Grid
   ctx.save();
@@ -77,30 +77,62 @@ export async function stampWatermarkOnImage(
 
   for (let y = -diagonal; y <= diagonal; y += stepY) {
     for (let x = -diagonal; x <= diagonal; x += stepX) {
-      // Primary bold text
-      ctx.font = "800 " + baseFontSize + "px 'Cairo', 'Segoe UI', Tahoma, sans-serif";
-      ctx.fillStyle = '#0f172a'; // Deep navy
-      ctx.fillText(primaryText, x, y);
+      // Measure box dimensions
+      ctx.font = `900 ${baseFontSize}px 'Cairo', 'Segoe UI', Tahoma, sans-serif`;
+      const mainMetrics = ctx.measureText(`🔒 ${primaryText}`);
+      ctx.font = `800 ${Math.round(baseFontSize * 0.72)}px 'Cairo', 'Segoe UI', Tahoma, sans-serif`;
+      const subMetrics = ctx.measureText(`⚠️ ${secondaryText}`);
+      const boxW = Math.max(mainMetrics.width, subMetrics.width) + 24;
+      const boxH = baseFontSize * 2.4;
 
-      // Subtle shadow / stroke effect for readability over any background
+      // High-contrast badge backing
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
+      ctx.fillRect(x - boxW / 2, y - baseFontSize * 0.75, boxW, boxH);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x - boxW / 2, y - baseFontSize * 0.75, boxW, boxH);
+
+      // Primary bold text with white stroke + red fill
+      ctx.font = `900 ${baseFontSize}px 'Cairo', 'Segoe UI', Tahoma, sans-serif`;
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = Math.max(1, Math.round(baseFontSize / 12));
-      ctx.strokeText(primaryText, x, y);
+      ctx.lineWidth = Math.max(2.8, Math.round(baseFontSize / 6));
+      ctx.strokeText(`🔒 ${primaryText}`, x, y);
+      ctx.fillStyle = '#ef4444';
+      ctx.fillText(`🔒 ${primaryText}`, x, y);
 
-      // Secondary warning text
-      ctx.font = "700 " + Math.round(baseFontSize * 0.72) + "px 'Cairo', 'Segoe UI', Tahoma, sans-serif";
-      ctx.fillStyle = '#dc2626'; // Alert Red
-      ctx.fillText(secondaryText, x, y + baseFontSize * 0.9);
+      // Secondary warning text with white stroke + crisp text
+      ctx.font = `800 ${Math.round(baseFontSize * 0.72)}px 'Cairo', 'Segoe UI', Tahoma, sans-serif`;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = Math.max(2.2, Math.round(baseFontSize / 8));
+      ctx.strokeText(`⚠️ ${secondaryText}`, x, y + baseFontSize * 0.9);
+      ctx.fillStyle = '#0f172a';
+      ctx.fillText(`⚠️ ${secondaryText}`, x, y + baseFontSize * 0.9);
     }
   }
 
   ctx.restore();
 
-  // 4. Subtle Border Shield Line
+  // 4. Heavy Center Anti-Theft Security Ribbon
   ctx.save();
-  ctx.strokeStyle = 'rgba(220, 38, 38, 0.45)';
-  ctx.lineWidth = Math.max(4, Math.round(width / 150));
-  ctx.strokeRect(8, 8, width - 16, height - 16);
+  ctx.translate(centerX, centerY);
+  ctx.rotate(-angleRad * 0.6);
+  ctx.fillStyle = 'rgba(220, 38, 38, 0.88)';
+  ctx.fillRect(-diagonal, -28, diagonal * 2, 56);
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(-diagonal, -28, diagonal * 2, 56);
+  ctx.font = `900 ${Math.max(16, Math.round(width / 34))}px 'Cairo', 'Segoe UI', Tahoma, sans-serif`;
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🔒 عينة مؤمنة • دليلك للمنظومة الذكية • غير مصرح بالنشر قبل التعاقد والاعتماد 🔒', 0, 0);
+  ctx.restore();
+
+  // 5. Outer Border Shield Line
+  ctx.save();
+  ctx.strokeStyle = 'rgba(220, 38, 38, 0.75)';
+  ctx.lineWidth = Math.max(6, Math.round(width / 120));
+  ctx.strokeRect(10, 10, width - 20, height - 20);
   ctx.restore();
 
   // 5. Export Data URL & Blob

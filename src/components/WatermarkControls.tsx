@@ -119,17 +119,17 @@ export const WatermarkControls: React.FC<WatermarkControlsProps> = ({
               </div>
               <input
                 type="range"
-                min="0.05"
-                max="0.45"
-                step="0.01"
+                min="0.15"
+                max="0.85"
+                step="0.05"
                 value={settings.opacity}
                 onChange={(e) => update({ opacity: parseFloat(e.target.value) })}
                 className="w-full accent-amber-500"
               />
               <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-                <span>خفيفة (5%)</span>
-                <span>متوسطة (20%)</span>
-                <span>بارزة (45%)</span>
+                <span>متوازنة (15%)</span>
+                <span>بارزة ومحمية (45%)</span>
+                <span>فولاذية قوية (85%)</span>
               </div>
             </div>
 

@@ -31,7 +31,12 @@ import {
   Check,
   Image as ImageIcon,
   CheckCheck,
-  Eye
+  Eye,
+  AlertTriangle,
+  Gift,
+  HelpCircle,
+  BarChart3,
+  BadgeCheck
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { PitchPackage } from '../types';
@@ -72,15 +77,13 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
   const [selectedAssetIndex, setSelectedAssetIndex] = useState<number | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
 
-  // Full 30-Day Content Plan Modal State
-  const [showFullCalendarModal, setShowFullCalendarModal] = useState<boolean>(false);
-  const [calendarFilter, setCalendarFilter] = useState<'all' | 'w1' | 'w2' | 'w3' | 'w4'>('all');
-
-  // Copy Feedback State
-  const [copiedCampaignId, setCopiedCampaignId] = useState<string | null>(null);
+  // Full 30-Day Content Plan VIP Lock Modal State
+  const [showLockedCalendarModal, setShowLockedCalendarModal] = useState<boolean>(false);
+  const [selectedLockedDay, setSelectedLockedDay] = useState<number | null>(null);
 
   const biz = pitch.business;
   const bizName = biz.name_ar || biz.name_en || 'النشاط التجاري';
+  const bizLocation = biz.city ? biz.city + (biz.governorate ? ' - ' + biz.governorate : '') : 'مصر';
   const growth = calculateProjectedGrowth(biz.category);
   const standStyles = getAcrylicMaterialStyles(pitch.visualAssets.acrylicStand.material);
 
@@ -164,8 +167,8 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
         badge: 'الهوية والشعار 👑',
         badgeColor: 'bg-amber-100 text-amber-900 border-amber-300',
         imageUrl: logoUrl,
-        description: `شعار رقمي أيقوني فخم ومتناسق مصمم خصيصاً لـ «${bizName}»، مضبوط الأبعاد والألوان ليناسب الواجهات، المطبوعات، ومواقع التواصل بدقة فائقة.`,
-        specs: 'دقة طباعة فائقة 300DPI • خلفية نقية متناسقة',
+        description: `شعار رقمي أيقوني فخم ومتناسق صُمم خصيصاً لـ «${bizName}»، مضبوط الأبعاد والألوان ليناسب الواجهات، المطبوعات، ومواقع التواصل بدقة فائقة.`,
+        specs: 'دقة طباعة فائقة 300DPI • تسليم بصيغ PNG شفافة و Vector مفتوح',
         type: 'logo'
       });
     }
@@ -178,8 +181,8 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
         badge: 'المنيو والأسعار 📋',
         badgeColor: 'bg-blue-100 text-blue-900 border-blue-300',
         imageUrl: pitch.visualAssets.catalogDataUrl,
-        description: `لوحة خدمات وأسعار منظمة تبرز أهم منتجات وعروض «${bizName}» بالجنيه المصري، مصممة بطريقة نفسية ترفع ثقة الزبون في قرار الشراء وتسهل اختياره.`,
-        specs: 'تصميم عمودي A4/A3 جاهز للطباعة وللنشر الرقمي كـ PDF',
+        description: `لوحة خدمات وقائمة أسعار منظمة تبرز أهم عروض ومنتجات «${bizName}» بالجنيه المصري، مصممة بطريقة نفسية ترفع ثقة الزبون في قرار الشراء وتسهل اختياره.`,
+        specs: 'تصميم عمودي A4/A3 جاهز للطباعة وللنشر الرقمي كـ PDF عالي الدقة',
         type: 'catalog'
       });
     }
@@ -195,7 +198,7 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
         badge: 'سوشيال ميديا 📱',
         badgeColor: 'bg-purple-100 text-purple-900 border-purple-300',
         imageUrl: postUrl,
-        description: `قالب إعلاني سينمائي جذاب مدمج بهوية النشاط وشعار رسمي، مخصص لجذب التفاعل وزيادة طلبات الشراء عبر فيسبوك وإنستغرام.`,
+        description: `قالب إعلاني سينمائي جذاب مدمج بهوية النشاط وشعار رسمي، مخصص لجذب التفاعل وزيادة طلبات الشراء المباشرة عبر فيسبوك وإنستغرام.`,
         specs: 'أبعاد 1080×1080 مربع موحد لـ Instagram و Facebook',
         type: 'social_post'
       });
@@ -226,8 +229,8 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
             badge: 'توثيق ميداني 📍',
             badgeColor: 'bg-emerald-100 text-emerald-900 border-emerald-300',
             imageUrl: url,
-            description: `لقطة حقيقية موثقة لمقر «${bizName}» ضمن ملف التوثيق الميداني المعتمد.`,
-            specs: 'صورة موقع حقيقية موثقة',
+            description: `لقطة حقيقية موثقة لمقر «${bizName}» ضمن ملف التوثيق الميداني المعتمد في خرائط Google.`,
+            specs: 'صورة موقع حقيقية موثقة رسمياً',
             type: 'photo'
           });
         }
@@ -266,63 +269,58 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedAssetIndex, visualAssetItems.length]);
 
-  // 5. Full 30-Day Marketing Plan
-  const fullCalendarDays = React.useMemo(() => {
-    if (Array.isArray(pitch.marketingData?.calendar) && pitch.marketingData.calendar.length >= 20) {
-      return pitch.marketingData.calendar.map((c: any, idx: number) => ({
+  // 5. Sample 3 Teaser Posts + 27 Locked Days
+  const sampleLivePosts = React.useMemo(() => {
+    if (Array.isArray(pitch.marketingData?.calendar) && pitch.marketingData.calendar.length >= 3) {
+      return pitch.marketingData.calendar.slice(0, 3).map((c: any, idx: number) => ({
         day: c.day || idx + 1,
-        pillar: c.pillarTitle || c.pillar || 'محتوى تسويقي',
+        pillar: c.pillarTitle || c.pillar || 'قيمة وتوعية',
         title: c.headline || c.title || `منشور اليوم ${idx + 1}`,
-        hook: c.hookText || c.hook || 'عرض حصري لا يفوتك!',
-        callToAction: c.callToAction || 'تواصل معنا الآن عبر واتساب أو زر مقرنا.',
-        format: c.suggestedFormat || (idx % 3 === 0 ? 'ريل / فيديو قصير' : idx % 3 === 1 ? 'ألبوم صور كاروسيل' : 'صورة فردية'),
-        hashtags: c.hashtags || `#دليلك #${bizName.replace(/\s+/g, '_')}`
+        hook: c.hookText || c.hook || 'أعلى جودة تلبي طلبك في منطقتك!',
+        format: c.suggestedFormat || (idx === 0 ? 'ريل / فيديو قصير' : idx === 1 ? 'ألبوم صور كاروسيل' : 'صورة ترويجية')
       }));
     }
 
-    // Default robust 30 days
-    const pillars = [
-      { name: 'قيمة وتوعية', format: 'ريل / فيديو قصير' },
-      { name: 'جودة ومصداقية', format: 'ألبوم صور كاروسيل' },
-      { name: 'عرض ترويجي وخصم', format: 'صورة عرض فردية' },
-      { name: 'تفاعل وسؤال للزبائن', format: 'منشور سؤال وستوري' }
+    return [
+      {
+        day: 1,
+        pillar: 'توعية وقيمة متخصصة',
+        title: `الجو برد والبرد مش عايز يسيبنا؟`,
+        hook: `يا أهل ${biz.city || 'المنطقة'} الكرام، الجو الأيام دي متقلب وكل شوية نلاقي دور برد جديد داخل على البيت.. تفتكروا إيه أحسن مشروب دافي بيظبط معاكم مع الدواء؟ شاركونا في التعليقات!`,
+        format: 'ريل / فيديو قصير'
+      },
+      {
+        day: 2,
+        pillar: 'إبراز الجودة وحل المشاكل',
+        title: `نواقص الأدوية؟ فكك من اللف والتعب!`,
+        hook: `تعبت من كتر اللف عشان تلاقي دوام معين؟ في «${bizName}» بنوفر لك نواقص الأدوية والمستلزمات الطبية وبنوصلها لباب بيتك بأسرع خدمة دليفري بالمنطقة.`,
+        format: 'ألبوم صور كاروسيل'
+      },
+      {
+        day: 3,
+        pillar: 'عروض وخصومات حصرية',
+        title: `عرض الويك إند لست الكل وعائلتها!`,
+        hook: `عشان عيون جيراننا الغاليين في ${biz.city || 'المنطقة'}، الدلع كله والعناية الصحية والشخصية عندنا عليها خصم خاص لليومين دول بس!`,
+        format: 'صورة عرض ترويجية'
+      }
     ];
-
-    const hooks = [
-      `ليه كل أهالي ${biz.city || 'المنطقة'} بيختاروا «${bizName}» أول ما يحتاجوا الجودة؟`,
-      `سر بسيط هيغير تجربتك تماماً لما تزورنا في «${bizName}»!`,
-      `عرض خاص جداً ومحدود لكل زبائننا الكرام بمناسبة الأسبوع الجديد ✨`,
-      `سؤال اليوم: إيه أكتر حاجة بتدور عليها لما تشتري؟ شاركنا رأيك في التعليقات 👇`,
-      `كواليس من داخل «${bizName}».. إزاي بنضمن لك أعلى مستوى في كل طلب؟`,
-      `لو بتدور على الأمانة والسرعة وراحة البال، مكانك الصح هو «${bizName}» 🤝`,
-      `خصم استثنائي لليوم فقط! اطلب دلوقتي واستفيد من العرض قبل النفاذ 🔥`
-    ];
-
-    return Array.from({ length: 30 }, (_, i) => {
-      const dayNum = i + 1;
-      const p = pillars[i % pillars.length];
-      const hook = hooks[i % hooks.length];
-      return {
-        day: dayNum,
-        pillar: p.name,
-        title: `خطة اليوم ${dayNum}: ${p.name}`,
-        hook: hook,
-        callToAction: 'زور مقرنا اليوم أو راسلنا على واتساب للاستفادة من العرض!',
-        format: p.format,
-        hashtags: `#دليلك #${bizName.replace(/\s+/g, '_')} #${biz.city || 'مصر'}`
-      };
-    });
   }, [pitch.marketingData?.calendar, bizName, biz.city]);
 
-  const filteredCalendarDays = React.useMemo(() => {
-    if (calendarFilter === 'w1') return fullCalendarDays.filter(d => d.day >= 1 && d.day <= 7);
-    if (calendarFilter === 'w2') return fullCalendarDays.filter(d => d.day >= 8 && d.day <= 14);
-    if (calendarFilter === 'w3') return fullCalendarDays.filter(d => d.day >= 15 && d.day <= 21);
-    if (calendarFilter === 'w4') return fullCalendarDays.filter(d => d.day >= 22 && d.day <= 30);
-    return fullCalendarDays;
-  }, [fullCalendarDays, calendarFilter]);
+  // Generate locked days 4 to 30
+  const lockedDaysList = React.useMemo(() => {
+    const lockedPillars = ['عروض مبيعات مباشرة', 'كواليس وثقة وجودة', 'مسابقة وتفاعل زبائن', 'نصيحة واستشارة موثوقة', 'تذكير بالخدمة السريعة'];
+    return Array.from({ length: 27 }, (_, i) => {
+      const dayNum = i + 4;
+      const pillar = lockedPillars[i % lockedPillars.length];
+      return {
+        day: dayNum,
+        pillar,
+        status: 'locked'
+      };
+    });
+  }, []);
 
-  // 6. WhatsApp Campaigns
+  // 6. WhatsApp Campaigns (No text copying; lead directly to WhatsApp confirmation)
   const whatsappCampaignsList = React.useMemo(() => {
     if (Array.isArray(pitch.marketingData?.whatsappCampaigns) && pitch.marketingData.whatsappCampaigns.length > 0) {
       return pitch.marketingData.whatsappCampaigns;
@@ -330,35 +328,35 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
     return [
       {
         id: 'camp_welcome',
-        title: '1. رسالة الترحيب والخصم للزبائن الجدد',
+        title: '1. رسالة الترحيب والعرض الافتتاحي للزبائن الجدد',
         audience: 'الزبائن الجدد وأهالي المنطقة',
-        messageText: `أهلاً بحضرتك في «${bizName}» 🌸\nسعداء جداً بتواصلك معانا! حبينا نهديك كود خصم 10% على أول زيارة أو طلب ليك.\n📍 عنواننا: ${biz.city || 'مصر'}\nلطلب الخدمة أو الاستفسار، رد علينا هنا مباشرة وهنخدمك بعيونا! ✨`
+        teaserSnippet: `يا مرحب بيك في «${bizName}» جيرانك الغاليين في ${biz.city || 'المنطقة'}... بنهديك خصم استثنائي وترحيب خاص على أول طلب!`
       },
       {
         id: 'camp_review',
         title: '2. رسالة طلب تقييم 5 نجوم على Google Maps بعد المعاملة',
-        audience: 'الزبائن بعد إتمام الشراء',
-        messageText: `مساء الخير يا فندم 🌟\nنتمنى تكون تجربتك مع «${bizName}» كانت على أعلى مستوى!\nرأيك يهمنا جداً وبيساعدنا نطور خدماتنا.. لو تكرمت بثواني معدودة تترك لنا تقييمك الجميل 5 نجوم على Google Maps من هنا:\n${pitch.visualAssets.acrylicStand.qrTargetUrl || 'https://maps.google.com'}\nشاكرين جداً لثقتك ودعمك! 🤝`
+        audience: 'الزبائن بعد الشراء لرفع ترتيبك',
+        teaserSnippet: `أهلاً بجارنا العزيز! نتمنى تكون خدمتنا نالت إعجابك.. رأيك بيشجعنا نفضل دايماً الأفضل، شاركنا تقييمك 5 نجوم على Google Maps بلمسة واحدة!`
       },
       {
         id: 'camp_fomo',
-        title: '3. رسالة العرض الأسبوعي الخاص وإعادة تنشيط الزبائن',
-        audience: 'الزبائن السابقين لإعادة الطلب',
-        messageText: `عرض خاص لزبائن «${bizName}» الأوفياء 🔥\nجاهزين لخدمتك طوال الأسبوع بعروض مميزة جداً وتخفيضات خاصة لحاملي هذه الرسالة.\nشرفنا بزيارتك أو اطلب دليفري دلوقتي واستمتع بأفضل جودة وخدمة في ${biz.city || 'منطقتك'}!`
+        title: '3. رسالة متابعة ورعاية الزبائن الدورية وتجديد الطلب',
+        audience: 'الزبائن السابقين لضمان ولائهم',
+        teaserSnippet: `مساء الخير والرضا من «${bizName}».. حبينا نطمن على صحتك وصحة أسرتك الكريمة، وتحت أمركم في أي وقت لخدمتكم وتوفير احتياجاتكم!`
       }
     ];
-  }, [pitch.marketingData?.whatsappCampaigns, bizName, biz.city, pitch.visualAssets.acrylicStand.qrTargetUrl]);
+  }, [pitch.marketingData?.whatsappCampaigns, bizName, biz.city]);
 
   const personaSlogan = pitch.marketingData?.persona?.slogan;
   const activeAsset = selectedAssetIndex !== null ? visualAssetItems[selectedAssetIndex] : null;
 
   return (
-    <div className="relative min-h-screen bg-slate-50 text-slate-900 selection:bg-amber-500 selection:text-white anti-theft-shield pb-24">
+    <div className="relative min-h-screen bg-slate-50 text-slate-900 selection:bg-amber-500 selection:text-white anti-theft-shield pb-28">
       
-      {/* 🛡️ LAYER 1: Continuous Repeating Diagonal Watermark */}
+      {/* 🛡️ LAYER 1: Continuous High-Contrast Watermark Pattern */}
       {pitch.watermarkSettings.enabled && (
         <div
-          className="fixed inset-0 pointer-events-none z-30"
+          className="fixed inset-0 pointer-events-none z-30 opacity-70"
           style={{
             backgroundImage: `url("${watermarkSvgUrl}")`,
             backgroundRepeat: 'repeat'
@@ -366,53 +364,69 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
         />
       )}
 
-      {/* Top Client Notification Bar */}
-      <div className="bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 px-4 py-2.5 text-center text-xs font-black shadow-xs flex items-center justify-center gap-2">
-        <span className="animate-pulse">💎</span>
-        <span>معاينة حصرية خاصة بنشاط: <strong>«{bizName}»</strong> • عرض محدود لمدة 48 ساعة فقط</span>
+      {/* Top Client VIP Notification Bar */}
+      <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white px-4 py-2.5 text-center text-xs font-bold shadow-md flex items-center justify-center gap-2 border-b border-amber-500/40">
+        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+        <span className="text-amber-400 font-black">تقرير واعتماد حصري:</span>
+        <span>خاص بنشاط <strong>«{bizName}»</strong> • متاح للحجز المعتمد لمدة 48 ساعة فقط</span>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
         
-        {/* HERO SECTION */}
+        {/* HERO SECTION: Tailored Agency Pitch */}
         <section 
           className="text-center space-y-4 pt-4"
           onMouseEnter={() => sessionId && recordSectionView(sessionId, 'hero')}
         >
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-100 border border-amber-300 text-amber-900 text-xs font-black shadow-xs">
-            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-            <span>خطة التوثيق والتصدر الميداني المعتمدة</span>
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-100 border border-amber-300 text-amber-950 text-xs font-black shadow-xs">
+            <Sparkles className="w-4 h-4 text-amber-600" />
+            <span>خطة التحول والتصدر الميداني الحصري • {bizLocation}</span>
           </div>
 
-          <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight leading-snug">
+          <h1 className="text-2xl sm:text-4xl font-black text-slate-950 tracking-tight leading-snug">
             {pitch.headline}
           </h1>
 
           {personaSlogan && (
-            <div className="inline-block bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 px-4 py-1.5 rounded-2xl text-xs sm:text-sm font-black text-amber-900 shadow-xs">
-              ✨ شعار الهوية: «{personaSlogan}»
+            <div className="inline-block bg-gradient-to-r from-amber-500/10 via-amber-500/20 to-yellow-500/10 border border-amber-300 px-5 py-2 rounded-2xl text-xs sm:text-sm font-black text-amber-950 shadow-xs">
+              ✨ الشعار اللفظي المقترح: «{personaSlogan}»
             </div>
           )}
 
-          <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto leading-relaxed font-medium">
-            {pitch.subheadline}
+          <p className="text-sm sm:text-base text-slate-700 max-w-2xl mx-auto leading-relaxed font-medium">
+            دراسة ميدانية مخصصة لنشاط «{bizName}» لتحويل زوار ومستخدمي خرائط Google في منطقة {bizLocation} إلى زبائن دائمين، مع بناء هوية تجارية فاخرة ترفع قيمتك وثقة العملاء في خدماتك.
           </p>
 
-          <div className="flex items-center justify-center gap-4 text-xs text-slate-500 flex-wrap">
-            <span className="flex items-center gap-1 font-bold text-slate-700">
-              <Store className="w-4 h-4 text-amber-500" />
+          <div className="flex items-center justify-center gap-4 text-xs text-slate-600 flex-wrap font-bold">
+            <span className="flex items-center gap-1.5 text-slate-900">
+              <Store className="w-4 h-4 text-amber-600" />
               <span>{bizName}</span>
             </span>
             <span>•</span>
             <span className="flex items-center gap-1">
-              <MapPin className="w-4 h-4 text-amber-500" />
-              <span>{biz.city || 'المدينة'} - {biz.governorate || 'مصر'}</span>
+              <MapPin className="w-4 h-4 text-amber-600" />
+              <span>{bizLocation}</span>
             </span>
             <span>•</span>
-            <span className="inline-flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>مؤهل للاعتماد المباشر</span>
+            <span className="inline-flex items-center gap-1 text-emerald-800 bg-emerald-100 px-3 py-0.5 rounded-full border border-emerald-300 font-black">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
+              <span>جاهز للاعتماد الميداني الفوري</span>
             </span>
+          </div>
+
+          {/* ⚡ SCARCITY & EXCLUSIVITY NOTICE */}
+          <div className="p-4 bg-gradient-to-r from-amber-500/15 via-yellow-500/20 to-amber-500/15 border border-amber-300 rounded-2xl max-w-2xl mx-auto flex items-start gap-3 text-right">
+            <div className="p-2 bg-amber-500 text-slate-950 rounded-xl font-black shrink-0 mt-0.5 shadow-xs">
+              ⚡
+            </div>
+            <div className="text-xs text-amber-950 space-y-1">
+              <strong className="block font-black text-sm text-slate-900">
+                حصرية المنطقة (Territory Exclusivity):
+              </strong>
+              <p className="leading-relaxed font-medium">
+                لحماية أسبقية عملائنا، يتم قبول وتوثيق <strong>نشاط واحد فقط معتمد</strong> في قطاع «{biz.city || 'المنطقة'}» لضمان انفراده بالصدارة التامة لنتائج خرائط Google واستحواذه على طلبات أهالي الحي بدون منافسة.
+              </p>
+            </div>
           </div>
         </section>
 
@@ -424,29 +438,29 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-black text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300">
+                <span className="text-xs font-black text-amber-800 bg-amber-100 px-3 py-0.5 rounded-full border border-amber-300">
                   نماذج بصرية حصرية 300DPI 🎨
                 </span>
-                <span className="text-xs text-slate-400 font-bold">
-                  ({visualAssetItems.length} نماذج وتصاميم جاهزة)
+                <span className="text-xs text-slate-500 font-bold">
+                  ({visualAssetItems.length} تصاميم جاهزة للمعاينة)
                 </span>
               </div>
-              <h2 className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-black text-slate-950 flex items-center gap-2">
                 <Layers className="w-5 h-5 text-amber-500" />
                 <span>معرض تصاميم الهوية البصرية لـ «{bizName}»</span>
               </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                جميع التصاميم أنتجت خصيصاً لنشاطك، اضغط على أي تصميم للاطلاع الكامل والتكبير بدقة عالية 🔍
+              <p className="text-xs text-slate-600 mt-1 font-medium">
+                اضغط على أي تصميم للاطلاع الكامل والتكبير بدقة عالية لفحص جودة الطباعة والتفاصيل 🔍
               </p>
             </div>
-            <span className="text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200 self-start sm:self-center flex items-center gap-1">
-              <Lock className="w-3.5 h-3.5" />
-              <span>عينة مؤمنة بالعلامة المائية</span>
+            <span className="text-xs font-black text-rose-800 bg-rose-50 px-3 py-1.5 rounded-xl border border-rose-200 self-start sm:self-center flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 text-rose-600" />
+              <span>عينة مؤمنة بالعلامة المائية المشددة</span>
             </span>
           </div>
 
           {/* Grid of visual asset cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {visualAssetItems.map((item, idx) => (
               <div
                 key={item.id}
@@ -454,35 +468,35 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
                   setSelectedAssetIndex(idx);
                   setZoomLevel(1);
                 }}
-                className="group bg-slate-50 hover:bg-white rounded-2xl border border-slate-200 hover:border-amber-400 p-4 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-3 relative overflow-hidden"
+                className="group bg-slate-900 rounded-2xl border-2 border-slate-700 hover:border-amber-400 p-4 shadow-sm hover:shadow-xl transition-all cursor-pointer flex flex-col justify-between space-y-3 relative overflow-hidden text-white"
               >
                 {/* Header info */}
                 <div className="flex items-center justify-between gap-2">
                   <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${item.badgeColor}`}>
                     {item.badge}
                   </span>
-                  <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1 group-hover:text-amber-600 transition-colors">
+                  <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1 group-hover:text-amber-300 transition-colors">
                     <Maximize2 className="w-3 h-3" />
                     <span>تكبير بالحجم الكامل</span>
                   </span>
                 </div>
 
-                <strong className="text-xs sm:text-sm font-black text-slate-900 line-clamp-1 group-hover:text-amber-600 transition-colors">
+                <strong className="text-xs sm:text-sm font-black text-white line-clamp-1 group-hover:text-amber-300 transition-colors">
                   {item.title}
                 </strong>
 
-                {/* Thumbnail Stage with Watermark Protection */}
-                <div className="h-48 sm:h-56 bg-slate-900 rounded-xl overflow-hidden relative border border-slate-200 flex items-center justify-center">
+                {/* Thumbnail Stage with High-Contrast Watermark & Ribbon */}
+                <div className="h-48 sm:h-56 bg-slate-950 rounded-xl overflow-hidden relative border border-slate-800 flex items-center justify-center">
                   <img
                     src={item.imageUrl}
                     alt={item.title}
                     className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-105 pointer-events-none"
                   />
 
-                  {/* Watermark Pattern on top */}
+                  {/* 1. Repeating Diagonal Watermark Pattern */}
                   {pitch.watermarkSettings.enabled && (
                     <div
-                      className="absolute inset-0 pointer-events-none opacity-40"
+                      className="absolute inset-0 pointer-events-none opacity-80 z-10"
                       style={{
                         backgroundImage: `url("${watermarkSvgUrl}")`,
                         backgroundRepeat: 'repeat'
@@ -490,24 +504,37 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
                     />
                   )}
 
+                  {/* 2. Bold Diagonal Security Ribbon (Guarantees visibility on both light & dark) */}
+                  <div className="absolute inset-0 pointer-events-none z-15 flex items-center justify-center overflow-hidden">
+                    <div className="transform -rotate-25 bg-red-600/40 border-y-2 border-red-500/70 backdrop-blur-[1px] py-1.5 px-8 text-center shadow-2xl w-[140%]">
+                      <span className="text-white font-black text-[10px] tracking-wide drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] flex items-center justify-center gap-1.5">
+                        <span>🔒 عينة مؤمنة</span>
+                        <span>•</span>
+                        <span>دليلك 🇪🇬</span>
+                        <span>•</span>
+                        <span>غير مصرح بالنشر قبل التعاقد</span>
+                      </span>
+                    </div>
+                  </div>
+
                   {/* Hover Overlay Badge */}
-                  <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-xs">
-                    <span className="bg-amber-500 text-slate-950 px-3.5 py-1.5 rounded-xl text-xs font-black shadow-lg flex items-center gap-1.5 transform translate-y-2 group-hover:translate-y-0 transition-transform">
+                  <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-xs z-20">
+                    <span className="bg-amber-500 text-slate-950 px-4 py-2 rounded-xl text-xs font-black shadow-xl flex items-center gap-1.5 transform translate-y-2 group-hover:translate-y-0 transition-transform">
                       <ZoomIn className="w-4 h-4" />
-                      <span>عرض الصورة بالحجم الكامل</span>
+                      <span>عرض الصورة بالحجم الكامل والتكبير</span>
                     </span>
                   </div>
                 </div>
 
                 {/* Description & Specs */}
-                <div className="space-y-1 text-xs">
-                  <p className="text-slate-600 text-[11px] leading-relaxed line-clamp-2 font-medium">
+                <div className="space-y-1.5 text-xs text-slate-300">
+                  <p className="text-[11px] leading-relaxed line-clamp-2 font-medium">
                     {item.description}
                   </p>
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-100 font-bold">
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-800 font-bold">
                     <span>{item.specs}</span>
-                    <span className="text-amber-600 flex items-center gap-1">
-                      <span>فتح العارض</span>
+                    <span className="text-amber-400 flex items-center gap-1 font-black">
+                      <span>عرض العينة</span>
                       <span>←</span>
                     </span>
                   </div>
@@ -516,8 +543,8 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
             ))}
           </div>
 
-          <div className="p-3 bg-slate-100 rounded-2xl text-center text-xs text-slate-600 font-bold">
-            💡 <span className="text-slate-900">ملاحظة:</span> يتم تسليم جميع التصاميم الأصلية بدقة الطباعة الكاملة (بدون أي علامة مائية) فور تفعيل الاشتراك في الباقة.
+          <div className="p-3.5 bg-amber-50 rounded-2xl text-center text-xs text-amber-950 font-bold border border-amber-200">
+            💡 <span className="text-slate-950 font-black">تنويه هام:</span> يتم تسليم كافة ملفات التصاميم الأصلية (الملفات المفتوحة والطباعية 300DPI وبدون أي علامة مائية) فور تفعيل الاشتراك في الباقة.
           </div>
         </section>
 
@@ -527,14 +554,14 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
           onMouseEnter={() => sessionId && recordSectionView(sessionId, 'acrylic_stand')}
         >
           <div className="text-center max-w-xl mx-auto mb-8 space-y-2">
-            <span className="text-xs font-black text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 inline-block">
-              الهدية المجانية الحصرية مع الباقة 🎁
+            <span className="text-xs font-black text-amber-700 bg-amber-100 px-3.5 py-1 rounded-full border border-amber-300 inline-block">
+              الهدية الميدانية الملموسة مع الباقة 🎁
             </span>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+            <h2 className="text-xl sm:text-2xl font-black text-slate-950">
               ستاند الطاولة الأكريليكي الفاخر بـ QR كود ذكي
             </h2>
-            <p className="text-xs sm:text-sm text-slate-500">
-              مجسم كريستالي راقٍ يوضع على طاولات وكاونتر الاستقبال لجذب مئات التقييمات الحقيقية 5 نجوم على Google Maps
+            <p className="text-xs sm:text-sm text-slate-600 font-medium">
+              مجسم كريستالي راقٍ يُصنع خصيصاً ويطبع باسم نشاطك، يوضع على طاولات وكاونتر الاستقبال لجذب مئات التقييمات الحقيقية 5 نجوم على Google Maps
             </p>
           </div>
 
@@ -548,7 +575,7 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
             />
 
             {/* Stand Main Crystal Plate */}
-            <div className={`w-56 sm:w-64 bg-white/90 backdrop-blur-md rounded-2xl p-5 border-2 ${standStyles.borderColor} shadow-2xl flex flex-col items-center text-center relative transition-transform duration-300 hover:scale-102`}>
+            <div className={`w-56 sm:w-64 bg-white/95 backdrop-blur-md rounded-2xl p-5 border-2 ${standStyles.borderColor} shadow-2xl flex flex-col items-center text-center relative transition-transform duration-300 hover:scale-102`}>
               
               {/* Beveled Top Reflection Line */}
               <div className="absolute top-2 left-4 right-4 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-80" />
@@ -594,9 +621,9 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
 
               {/* NFC & Official Badge */}
               <div className="pt-2 border-t border-slate-200/80 w-full flex items-center justify-between text-[8px] font-bold text-slate-400">
-                <span className="flex items-center gap-1 text-slate-600">
+                <span className="flex items-center gap-1 text-slate-600 font-black">
                   <Radio className="w-2.5 h-2.5 text-amber-500 animate-pulse" />
-                  لمس NFC مباشر
+                  لمس NFC ذكي
                 </span>
                 <span>دليلك 🇪🇬</span>
               </div>
@@ -613,8 +640,8 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
 
           </div>
 
-          <div className="mt-4 text-center text-xs text-slate-500 font-medium">
-            يصلك المجسم مصنعاً من أجود خامات الأكريليك مع شهادة توثيق رسمية
+          <div className="mt-4 text-center text-xs text-slate-600 font-bold">
+            🛡️ يصلك المجسم مصنعاً من أجود خامات الأكريليك مع شهادة توثيق رسمية باليد لمعاينته قبل الدفع
           </div>
         </section>
 
@@ -629,7 +656,7 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
                 <TrendingUp className="w-5 h-5 text-emerald-500" />
                 <span>العائد المتوقع على نشاط «{bizName}» بعد التوثيق</span>
               </h3>
-              <p className="text-xs text-slate-500">مبني على دراسة معدلات نمو الأنشطة المشابهة في {biz.city || 'المنطقة'}</p>
+              <p className="text-xs text-slate-500">مبني على دراسة معدلات نمو الأنشطة المشابهة في {bizLocation}</p>
             </div>
             <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-3 py-1 rounded-full self-start sm:self-center">
               نتائج مضمونة 100%
@@ -663,7 +690,7 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
           </div>
         </section>
 
-        {/* 🗓️ CENTERPIECE 4: 30-DAY CONTENT PLAN HIGHLIGHTS + MODAL ACCESS */}
+        {/* 🗓️ CENTERPIECE 4: 30-DAY CONTENT PLAN TEASER (3 Live Samples + Locked Days & Renewal System) */}
         <section 
           className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6"
           onMouseEnter={() => sessionId && recordSectionView(sessionId, 'content_plan')}
@@ -671,69 +698,106 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-black px-2.5 py-0.5 rounded-full">
-                  30 منشور مكتوب ومجدول 🗓️
+                <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-black px-3 py-0.5 rounded-full">
+                  خطة شهرية متجددة تلقائياً 🗓️
+                </span>
+                <span className="text-xs text-slate-500 font-bold">
+                  (عينة تجريبية: 3 منشورات معتمدة)
                 </span>
               </div>
-              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <h3 className="text-lg font-black text-slate-950 flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-amber-500" />
-                <span>خطة المحتوى التسويقي لـ «{bizName}» (30 يوماً)</span>
+                <span>عينة من خطة المحتوى التسويقي لـ «{bizName}»</span>
               </h3>
-              <p className="text-xs text-slate-500">نصوص مكتوبة خصيصاً لجذب الزبائن باللهجة المصرية المحببة ومقسمة لـ 4 ركائز استراتيجية</p>
+              <p className="text-xs text-slate-600 font-medium">
+                نصوص مكتوبة خصيصاً لجذب الزبائن باللهجة المصرية المحببة ومقسمة لـ 4 ركائز استراتيجية
+              </p>
             </div>
             
             <button
               type="button"
-              onClick={() => setShowFullCalendarModal(true)}
+              onClick={() => setShowLockedCalendarModal(true)}
               className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs px-4 py-2.5 rounded-xl shadow-xs transition cursor-pointer self-start sm:self-center"
             >
-              <Calendar className="w-4 h-4" />
-              <span>استعراض الـ 30 يوماً بالكامل ←</span>
+              <Lock className="w-4 h-4" />
+              <span>نظام الـ 30 يوماً وتفاصيل التجديد ←</span>
             </button>
           </div>
 
-          {/* Sample Snippet Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {fullCalendarDays.slice(0, 4).map((plan) => (
+          {/* 3 Live Sample Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {sampleLivePosts.map((plan) => (
               <div
                 key={plan.day}
-                className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs hover:border-amber-300 transition-colors"
+                className="p-4 bg-slate-50 rounded-2xl border-2 border-amber-200/80 space-y-2.5 text-xs relative"
               >
                 <div className="flex items-center justify-between">
                   <span className="bg-amber-500 text-slate-950 font-black px-2 py-0.5 rounded-lg text-[10px]">
-                    اليوم {plan.day}
+                    عينة اليوم {plan.day}
                   </span>
-                  <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200">
                     {plan.pillar}
                   </span>
                 </div>
                 <strong className="block text-slate-900 font-black text-xs">
                   {plan.title}
                 </strong>
-                <p className="text-slate-600 text-[11px] leading-relaxed">
+                <p className="text-slate-700 text-[11px] leading-relaxed font-medium">
                   «{plan.hook}»
                 </p>
-                <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1">
-                  <span>النوع: {plan.format}</span>
-                  <span className="text-amber-600 font-bold">جاهز للنشر ✓</span>
+                <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-200/60 font-bold">
+                  <span>الصيغة: {plan.format}</span>
+                  <span className="text-emerald-700 flex items-center gap-0.5">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                    <span>جاهز للنشر</span>
+                  </span>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="text-center pt-1">
+          {/* Locked Days Teaser Bar (Days 4 to 30) */}
+          <div 
+            onClick={() => setShowLockedCalendarModal(true)}
+            className="p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-2xl text-white border border-slate-700 shadow-md cursor-pointer hover:border-amber-400 transition-all flex flex-col sm:flex-row items-center justify-between gap-4"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+                <Lock className="w-6 h-6" />
+              </div>
+              <div className="space-y-1 text-right">
+                <div className="flex items-center gap-2">
+                  <strong className="text-sm font-black text-white">
+                    باقي أيام الشهر (المنشورات من اليوم 4 حتى اليوم 30)
+                  </strong>
+                  <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full">
+                    27 منشوراً مقفلاً
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                  يتم تسليم الخطة كاملة مع جدول الأوقات المناسبة للنشر وملف PDF مطبوع فور تفعيل الباقة، وتتجدد تلقائياً كل شهر مع تجديد الاشتراك.
+                </p>
+              </div>
+            </div>
+
             <button
               type="button"
-              onClick={() => setShowFullCalendarModal(true)}
-              className="text-xs font-black text-amber-600 hover:text-amber-700 underline inline-flex items-center gap-1 cursor-pointer"
+              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-5 py-3 rounded-xl shadow-lg transition cursor-pointer shrink-0"
             >
-              <span>عرض باقي أيام الخطة (من اليوم 5 حتى اليوم 30)</span>
-              <span>←</span>
+              فتح الخطة الشهرية بالكامل ←
             </button>
+          </div>
+
+          {/* Monthly Renewal Assurance Banner */}
+          <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-2.5 text-xs text-emerald-950 font-bold">
+            <span className="text-base">🔄</span>
+            <span>
+              <strong>ميزة التجديد الشهري التلقائي:</strong> تتجدد المنشورات الـ 30 كل شهر مع تجديد الاشتراك لضمان بقاء نشاطك التجاري نشطاً ومتصدراً باستمرار دون الحاجة لتوظيف فريق تسويق مكلف.
+            </span>
           </div>
         </section>
 
-        {/* 💬 CENTERPIECE 5: READY WHATSAPP CAMPAIGN MESSAGES (حملات الواتساب الجاهزة) */}
+        {/* 💬 CENTERPIECE 5: READY WHATSAPP MARKETING CAMPAIGNS (حملات الواتساب التسويقية) */}
         <section 
           className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6"
           onMouseEnter={() => sessionId && recordSectionView(sessionId, 'whatsapp_campaigns')}
@@ -741,18 +805,20 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="bg-emerald-100 text-emerald-900 border border-emerald-300 text-[10px] font-black px-2.5 py-0.5 rounded-full">
-                  حملات الواتساب الميدانية 💬
+                <span className="bg-emerald-100 text-emerald-900 border border-emerald-300 text-[10px] font-black px-3 py-0.5 rounded-full">
+                  حملات الواتساب الميدانية المباشرة 💬
                 </span>
               </div>
-              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <h3 className="text-lg font-black text-slate-950 flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-emerald-600" />
-                <span>رسائل واتساب تسويقية جاهزة لإرسالها لزبائنك</span>
+                <span>حملات ورسائل واتساب مصممة لزيادة مبيعاتك</span>
               </h3>
-              <p className="text-xs text-slate-500">قوالب رسائل مصممة لزيادة المبيعات وإعادة تنشيط الزبائن وطلب تقييمات خرائط Google</p>
+              <p className="text-xs text-slate-600 font-medium">
+                رسائل مكتوبة باحترافية لرفع معدل الرد والطلبات وإعادة تشغيل الزبائن السابقين
+              </p>
             </div>
-            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 self-start sm:self-center">
-              جاهزة للإرسال فوراً
+            <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 self-start sm:self-center">
+              مجهزة ومربوطة بنشاطك
             </span>
           </div>
 
@@ -760,14 +826,14 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
             {whatsappCampaignsList.map((camp) => (
               <div
                 key={camp.id || camp.title}
-                className="bg-emerald-50/50 border border-emerald-200 rounded-2xl p-4 flex flex-col justify-between space-y-3"
+                className="bg-emerald-50/50 border-2 border-emerald-200/80 rounded-2xl p-4 flex flex-col justify-between space-y-3"
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">
                       واتساب رسمي
                     </span>
-                    <span className="text-[10px] text-slate-400 font-bold">
+                    <span className="text-[10px] text-slate-500 font-bold">
                       {camp.audience || 'الزبائن'}
                     </span>
                   </div>
@@ -775,39 +841,121 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
                     {camp.title}
                   </strong>
                   
-                  {/* WhatsApp Speech Bubble */}
-                  <div className="bg-white rounded-xl p-3 border border-emerald-100 text-[11px] text-slate-700 leading-relaxed font-sans whitespace-pre-line shadow-xs">
-                    {camp.messageText}
+                  {/* WhatsApp Speech Bubble Teaser */}
+                  <div className="bg-white rounded-xl p-3 border border-emerald-100 text-[11px] text-slate-700 leading-relaxed font-sans shadow-xs relative">
+                    <p className="italic font-medium">«{camp.teaserSnippet}»</p>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(camp.messageText);
-                    setCopiedCampaignId(camp.id || camp.title);
-                    setTimeout(() => setCopiedCampaignId(null), 2500);
-                  }}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                <a
+                  href={`https://wa.me/201556221141?text=${encodeURIComponent(`السلام عليكم، أنا صاحب نشاط «${bizName}» وأريد تفعيل حملة الواتساب «${camp.title}» ضمن الباقة المعتمدة!`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={handleCtaClick}
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition shadow-xs cursor-pointer"
                 >
-                  {copiedCampaignId === (camp.id || camp.title) ? (
-                    <>
-                      <CheckCheck className="w-3.5 h-3.5 text-white" />
-                      <span>تم نسخ الرسالة!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>نسخ نص الرسالة</span>
-                    </>
-                  )}
-                </button>
+                  <Send className="w-3.5 h-3.5" />
+                  <span>تفعيل هذه الحملة في باقتي</span>
+                </a>
               </div>
             ))}
           </div>
+
+          <p className="text-[11px] text-slate-500 text-center font-bold">
+            💡 يتم ربط هذه الحملات برقم واتساب نشاطك الرسمي وتدريب فريقك على تشغيلها عند استلام الباقة
+          </p>
         </section>
 
-        {/* 💰 CENTERPIECE 6: LIMITED-TIME DEAL & PRICING PACKAGES */}
+        {/* 📊 CENTERPIECE 6: AGENCY INVESTMENT COMPARISON (لماذا دليلك هي الخيار الأذكى والأوفر؟) */}
+        <section 
+          className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-md space-y-6"
+          onMouseEnter={() => sessionId && recordSectionView(sessionId, 'roi_comparison')}
+        >
+          <div className="text-center max-w-xl mx-auto space-y-1">
+            <span className="text-xs font-black text-amber-700 bg-amber-100 px-3 py-1 rounded-full border border-amber-300 inline-block">
+              مقارنة واقعية للاستثمار والتكاليف 💰
+            </span>
+            <h3 className="text-xl sm:text-2xl font-black text-slate-950">
+              لماذا باقة دليلك هي الاستثمار الأذكى لنشاطك؟
+            </h3>
+            <p className="text-xs text-slate-500 font-medium">
+              مقارنة بين تكلفة التعاقد مع مصممين ووكالات تسويق منفصلة وبين باقة دليلك الشاملة
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            
+            {/* Traditional Agencies Box */}
+            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <strong className="text-sm font-black text-slate-800">التكاليف في السوق التقليدي:</strong>
+                <span className="text-xs text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded-md">تكاليف متفرقة</span>
+              </div>
+              <ul className="space-y-2 text-xs text-slate-600 font-medium">
+                <li className="flex items-center justify-between">
+                  <span>تصميم شعار وهوية بصرية منفصلة:</span>
+                  <strong className="text-slate-800 font-mono">3,500 جنيه</strong>
+                </li>
+                <li className="flex items-center justify-between">
+                  <span>كاتب محتوى تسويقي شهري (30 يوماً):</span>
+                  <strong className="text-slate-800 font-mono">2,500 جنيه</strong>
+                </li>
+                <li className="flex items-center justify-between">
+                  <span>تصنيع ستاند أكريليك ذكي بـ QR:</span>
+                  <strong className="text-slate-800 font-mono">650 جنيه</strong>
+                </li>
+                <li className="flex items-center justify-between">
+                  <span>توثيق وتثبيت خرائط Google رسمياً:</span>
+                  <strong className="text-slate-800 font-mono">1,500 جنيه</strong>
+                </li>
+              </ul>
+              <div className="pt-2 border-t border-slate-200 flex items-center justify-between font-black text-sm">
+                <span>الإجمالي المتوقع:</span>
+                <span className="text-rose-600 line-through font-mono">8,150 جنيه</span>
+              </div>
+            </div>
+
+            {/* Dalilak Integrated Offer Box */}
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/20 to-yellow-500/15 border-2 border-amber-400 space-y-3 relative overflow-hidden">
+              <div className="flex items-center justify-between border-b border-amber-300 pb-2">
+                <strong className="text-sm font-black text-amber-950 flex items-center gap-1.5">
+                  <BadgeCheck className="w-4 h-4 text-amber-600" />
+                  <span>باقة دليلك الذهبية المتكاملة:</span>
+                </strong>
+                <span className="text-xs text-emerald-800 font-black bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                  وفر أكثر من 70%
+                </span>
+              </div>
+              <ul className="space-y-2 text-xs text-slate-800 font-bold">
+                <li className="flex items-center justify-between">
+                  <span>✓ الشعار الأيقوني + الكتالوج + البانر + البوست:</span>
+                  <span className="text-emerald-700">شامل ومجاني</span>
+                </li>
+                <li className="flex items-center justify-between">
+                  <span>✓ ستاند أكريليك كريستالي ذكي بـ QR كود:</span>
+                  <span className="text-emerald-700">هدية مجانية 🎁</span>
+                </li>
+                <li className="flex items-center justify-between">
+                  <span>✓ خطة المحتوى التسويقي (30 يوماً متجددة):</span>
+                  <span className="text-emerald-700">شاملة بالكامل</span>
+                </li>
+                <li className="flex items-center justify-between">
+                  <span>✓ التوثيق الميداني والاعتماد الرسمي:</span>
+                  <span className="text-emerald-700">معتمد 100%</span>
+                </li>
+              </ul>
+              <div className="pt-2 border-t border-amber-300 flex items-center justify-between font-black text-base text-slate-950">
+                <span>الاستثمار المطلوب:</span>
+                <span className="text-2xl font-mono text-amber-600 font-black">
+                  {pitch.discountedPrice} {pitch.currency}
+                </span>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        {/* 💰 CENTERPIECE 7: LIMITED-TIME DEAL & PRICING PACKAGES */}
         <section 
           className="bg-gradient-to-b from-amber-500 to-amber-600 rounded-3xl p-6 sm:p-10 text-slate-950 shadow-xl space-y-8 relative overflow-hidden"
           onMouseEnter={() => sessionId && recordSectionView(sessionId, 'pricing_deal')}
@@ -819,7 +967,7 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
           <div className="max-w-md mx-auto bg-slate-950 text-white p-4 rounded-2xl text-center space-y-2 shadow-lg">
             <span className="text-[11px] font-black text-amber-400 flex items-center justify-center gap-1">
               <Clock className="w-3.5 h-3.5" />
-              <span>ينتهي الخصم الاستثنائي خلال:</span>
+              <span>ينتهي الخصم وحجز مقعد المنطقة الحصري خلال:</span>
             </span>
             <div className="flex items-center justify-center gap-3 font-mono font-black text-xl sm:text-2xl">
               <div className="bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
@@ -855,7 +1003,7 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
             </div>
 
             <p className="text-xs sm:text-sm font-bold text-slate-950/90 max-w-md mx-auto">
-              شاملة الستاند الأكريليكي الكريستالي + التوثيق الرسمي + خطة الـ 30 يوماً + التصاميم الـ 4 كاملة
+              شاملة الستاند الأكريليكي الكريستالي الفاخر + التوثيق الرسمي + خطة الـ 30 يوماً المتجددة + التصاميم الـ 4 كاملة
             </p>
           </div>
 
@@ -870,14 +1018,14 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
           </div>
 
           {/* Guarantee Pill */}
-          <div className="text-center text-xs font-bold text-slate-950/80 max-w-md mx-auto">
-            🛡️ {pitch.guaranteeText}
+          <div className="text-center text-xs font-black text-slate-950 bg-white/40 max-w-md mx-auto py-2 px-4 rounded-xl border border-white/60">
+            🛡️ {pitch.guaranteeText} (معاينة الستاند باليد قبل الدفع)
           </div>
 
           {/* Main Action Button */}
           <div className="text-center pt-2">
             <a
-              href={`https://wa.me/201556221141?text=${encodeURIComponent(`السلام عليكم، أنا صاحب نشاط «${bizName}» وفتحت المعاينة التفاعلية وحابب أحجز الباقة الذهبية واستلم ستاند الأكريليك والتصاميم الأصلية!`)}`}
+              href={`https://wa.me/201556221141?text=${encodeURIComponent(`السلام عليكم، أنا صاحب نشاط «${bizName}» وعاينت الخطة التفاعلية وحابب أحجز الباقة الذهبية واستلم ستاند الأكريليك والتصاميم الأصلية!`)}`}
               target="_blank"
               rel="noopener noreferrer"
               onClick={handleCtaClick}
@@ -908,7 +1056,7 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
                   {activeAsset.title}
                 </h3>
                 <span className="text-xs text-slate-400">
-                  النموذج {selectedAssetIndex + 1} من {visualAssetItems.length} • نشاط «{bizName}»
+                  التصميم {selectedAssetIndex + 1} من {visualAssetItems.length} • نشاط «${bizName}»
                 </span>
               </div>
             </div>
@@ -983,7 +1131,7 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
               </button>
             )}
 
-            {/* Image Container with Zoom & Watermark */}
+            {/* Image Container with Zoom & Strict Watermark */}
             <div className="relative max-w-4xl max-h-[70vh] flex items-center justify-center overflow-auto p-4">
               <img
                 src={activeAsset.imageUrl}
@@ -995,16 +1143,29 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
                 className="max-h-[65vh] max-w-full object-contain rounded-xl shadow-2xl pointer-events-none select-none"
               />
 
-              {/* Anti-Theft Watermark Overlay */}
+              {/* 1. High-Visibility Diagonal Watermark Pattern */}
               {pitch.watermarkSettings.enabled && (
                 <div
-                  className="absolute inset-0 pointer-events-none opacity-50"
+                  className="absolute inset-0 pointer-events-none opacity-85 z-10"
                   style={{
                     backgroundImage: `url("${watermarkSvgUrl}")`,
                     backgroundRepeat: 'repeat'
                   }}
                 />
               )}
+
+              {/* 2. Bold Central Diagonal Security Ribbon (Cross-cutting) */}
+              <div className="absolute inset-0 pointer-events-none z-15 flex items-center justify-center overflow-hidden">
+                <div className="transform -rotate-25 bg-red-600/40 border-y-2 border-red-500/80 backdrop-blur-[1px] py-2 px-12 text-center shadow-2xl w-[140%]">
+                  <span className="text-white font-black text-xs sm:text-sm tracking-wide drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] flex items-center justify-center gap-2">
+                    <span>🔒 عينة تجريبية مؤمنة</span>
+                    <span>•</span>
+                    <span>دليلك 🇪🇬</span>
+                    <span>•</span>
+                    <span>غير مصرح بالنشر أو الطباعة قبل التعاقد الرسمي</span>
+                  </span>
+                </div>
+              </div>
             </div>
 
           </div>
@@ -1018,7 +1179,7 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
               <div className="flex items-center gap-3 text-xs text-slate-400 font-bold flex-wrap">
                 <span>{activeAsset.specs}</span>
                 <span>•</span>
-                <span className="text-amber-400">جاهز للتسليم الفوري بدون علامة مائية عند التعاقد</span>
+                <span className="text-amber-400">يتم التسليم بالدقة الأصلية بدون علامة مائية فور التعاقد</span>
               </div>
             </div>
 
@@ -1030,135 +1191,96 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
               className="w-full md:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm px-6 py-3 rounded-xl shadow-lg transition cursor-pointer shrink-0"
             >
               <Send className="w-4 h-4" />
-              <span>طلب استلام التصميم الأصلي عبر واتساب</span>
+              <span>طلب استلام هذا التصميم بالدقة الأصلية</span>
             </a>
           </div>
 
         </div>
       )}
 
-      {/* 🗓️ FULL 30-DAY MARKETING CONTENT PLAN MODAL */}
-      {showFullCalendarModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden text-right">
+      {/* 🔒 LOCKED 30-DAY MARKETING CONTENT PLAN VIP MODAL (حجز الباقة لفتح الخطة كاملة) */}
+      {showLockedCalendarModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden text-right">
             
             {/* Modal Header */}
             <div className="p-5 sm:p-6 border-b border-slate-200 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="bg-slate-950 text-amber-400 text-[10px] font-black px-2.5 py-0.5 rounded-full">
-                    جدول شهري معتمد
+                    باقة المحتوى الشهري المعتمد
                   </span>
-                  <span className="text-xs font-bold text-slate-900">30 منشور مكتوب ومجدول</span>
+                  <span className="text-xs font-bold text-slate-900">30 يوماً متجددة تلقائياً</span>
                 </div>
                 <h3 className="text-lg sm:text-xl font-black">
-                  خطة المحتوى التسويقي الكاملة لـ «{bizName}» (30 يوماً)
+                  نظام خطة الـ 30 يوماً لنشاط «{bizName}»
                 </h3>
               </div>
 
               <button
                 type="button"
-                onClick={() => setShowFullCalendarModal(false)}
+                onClick={() => setShowLockedCalendarModal(false)}
                 className="p-2 rounded-xl bg-slate-950/10 hover:bg-slate-950/20 text-slate-950 transition cursor-pointer"
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
 
-            {/* Filter Tabs by Week */}
-            <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center gap-2 overflow-x-auto text-xs font-bold">
-              <button
-                type="button"
-                onClick={() => setCalendarFilter('all')}
-                className={`px-3.5 py-2 rounded-xl transition cursor-pointer shrink-0 ${calendarFilter === 'all' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'}`}
-              >
-                جميع الأيام (30 يوماً)
-              </button>
-              <button
-                type="button"
-                onClick={() => setCalendarFilter('w1')}
-                className={`px-3.5 py-2 rounded-xl transition cursor-pointer shrink-0 ${calendarFilter === 'w1' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'}`}
-              >
-                الأسبوع 1 (أيام 1-7): التوعية وبناء الثقة
-              </button>
-              <button
-                type="button"
-                onClick={() => setCalendarFilter('w2')}
-                className={`px-3.5 py-2 rounded-xl transition cursor-pointer shrink-0 ${calendarFilter === 'w2' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'}`}
-              >
-                الأسبوع 2 (أيام 8-14): إبراز الجودة والشهادات
-              </button>
-              <button
-                type="button"
-                onClick={() => setCalendarFilter('w3')}
-                className={`px-3.5 py-2 rounded-xl transition cursor-pointer shrink-0 ${calendarFilter === 'w3' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'}`}
-              >
-                الأسبوع 3 (أيام 15-21): عروض حصرية وتفاعل
-              </button>
-              <button
-                type="button"
-                onClick={() => setCalendarFilter('w4')}
-                className={`px-3.5 py-2 rounded-xl transition cursor-pointer shrink-0 ${calendarFilter === 'w4' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'}`}
-              >
-                الأسبوع 4 (أيام 22-30): حسم المبيعات وإغلاق الشهر
-              </button>
-            </div>
+            {/* Modal Content */}
+            <div className="p-6 space-y-4 text-xs sm:text-sm">
+              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-amber-950 space-y-2">
+                <strong className="text-sm font-black block text-slate-900">
+                  🔒 ما الذي ستحصل عليه فور تفعيل اشتراكك في الباقة؟
+                </strong>
+                <ul className="space-y-1.5 text-xs text-slate-700 font-medium">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span><strong>30 منشوراً تسويقياً كاملاً</strong> مكتوباً باللهجة المصرية الجذابة مخصصاً لنشاطك.</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span><strong>جدول زمني دقيق للنشر</strong> يوضح أفضل ساعات الذروة لنشر كل منشور أسبوعياً.</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span><strong>صيغ متنوعة للخوارزميات</strong> (أفكار ريلز وفيديوهات قصيرة + بوستات صور + ستوريز).</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span><strong>استلام ملف PDF مطبوع ومجدول</strong> تسليماً رسمياً باليد مع مندوب التوثيق.</span>
+                  </li>
+                </ul>
+              </div>
 
-            {/* Scrollable Calendar List */}
-            <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-3">
-              {filteredCalendarDays.map((plan) => (
-                <div
-                  key={plan.day}
-                  className="p-4 bg-slate-50 hover:bg-amber-50/40 rounded-2xl border border-slate-200 transition space-y-2 text-xs"
-                >
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="bg-amber-500 text-slate-950 font-black px-2.5 py-0.5 rounded-lg text-xs">
-                        اليوم {plan.day}
-                      </span>
-                      <strong className="text-slate-900 font-black text-sm">
-                        {plan.title}
-                      </strong>
-                    </div>
-                    <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-200">
-                      ركيزة: {plan.pillar}
-                    </span>
-                  </div>
-
-                  <div className="bg-white rounded-xl p-3 border border-slate-200 space-y-1.5">
-                    <span className="text-[10px] font-bold text-slate-400 block">
-                      الجملة الافتتاحية الخاطفة (Hook):
-                    </span>
-                    <p className="text-slate-800 font-bold text-xs sm:text-sm leading-relaxed">
-                      «{plan.hook}»
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 flex-wrap gap-2 pt-1 font-medium">
-                    <span className="flex items-center gap-1 text-slate-700 font-bold">
-                      <span>صيغة المنشور المقترحة:</span>
-                      <span className="text-amber-700">{plan.format}</span>
-                    </span>
-                    <span className="text-slate-400 font-mono text-[10px]">
-                      {plan.hashtags}
-                    </span>
-                  </div>
+              {/* Monthly Renewal Highlight */}
+              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-950 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🔄</span>
+                  <strong className="text-xs sm:text-sm font-black text-slate-900">
+                    ميزة التجديد التلقائي المستمر:
+                  </strong>
                 </div>
-              ))}
+                <p className="text-xs text-emerald-900 leading-relaxed font-medium">
+                  لا تقلق بشأن ما ستنشره الشهر القادم! بمجرد استمرار وتجديد اشتراكك، يتم إعداد وتجهيز <strong>30 منشوراً جديداً بالكامل شهرياً</strong> لمواكبة المواسم والعروض وضمان صدارة نشاطك المستمرة.
+                </p>
+              </div>
             </div>
 
-            {/* Modal Footer */}
+            {/* Modal Footer Actions */}
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <span className="text-xs text-slate-600 font-bold">
-                تسليم ملف PDF مطبوع بكامل المنشورات مع الباقة المعتمدة
+              <span className="text-xs text-slate-500 font-bold">
+                حجز فوري مباشر ومؤمن عبر واتساب
               </span>
-              <button
-                type="button"
-                onClick={() => setShowFullCalendarModal(false)}
-                className="w-full sm:w-auto px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+              <a
+                href={`https://wa.me/201556221141?text=${encodeURIComponent(`السلام عليكم، أنا صاحب نشاط «${bizName}» وأريد تفعيل الباقة وحجز خطة الـ 30 يوماً التسويقية واستلام ملف الـ PDF والستاند الأكريليك!`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={handleCtaClick}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm px-6 py-3 rounded-xl shadow-md transition cursor-pointer"
               >
-                إغلاق الجدول
-              </button>
+                <Send className="w-4 h-4" />
+                <span>حجز الباقة وفتح الخطة كاملة عبر واتساب</span>
+              </a>
             </div>
 
           </div>

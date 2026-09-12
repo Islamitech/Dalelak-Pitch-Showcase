@@ -6,30 +6,49 @@ import { WatermarkSettings } from '../types';
 export function generateWatermarkPatternSvg(settings: WatermarkSettings): string {
   const primaryText = escapeXml(settings.text || 'معاينة خاصة • دليلك للمنظومة الذكية');
   const secondaryText = escapeXml(settings.secondaryText || 'عينة مؤمنة ضد الاستخدام قبل التعاقد');
-  const opacity = Math.min(Math.max(settings.opacity || 0.18, 0.05), 0.5);
+  // High-visibility opacity (0.38 - 0.75) so it is impossible to miss on any background
+  const opacity = Math.min(Math.max(settings.opacity || 0.42, 0.30), 0.80);
   const angle = settings.angle || -26;
   const fontSize = settings.fontSize || 14;
 
-  let patternWidth = 360;
-  let patternHeight = 220;
+  let patternWidth = 320;
+  let patternHeight = 180;
 
   if (settings.density === 'sparse') {
-    patternWidth = 480;
-    patternHeight = 300;
+    patternWidth = 420;
+    patternHeight = 240;
   } else if (settings.density === 'dense') {
-    patternWidth = 260;
-    patternHeight = 160;
+    patternWidth = 240;
+    patternHeight = 140;
   }
 
   const svgString = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${patternWidth}" height="${patternHeight}">
       <style>
-        .wm-main { fill: #0f172a; font-family: Cairo, sans-serif; font-weight: 800; font-size: ${fontSize}px; }
-        .wm-sub { fill: #dc2626; font-family: Cairo, sans-serif; font-weight: 700; font-size: ${Math.max(fontSize - 4, 10)}px; }
+        .wm-badge { fill: rgba(220, 38, 38, 0.08); stroke: rgba(220, 38, 38, 0.35); stroke-width: 1px; rx: 8px; }
+        .wm-main { 
+          fill: #dc2626; 
+          stroke: #ffffff; 
+          stroke-width: 1.6px; 
+          paint-order: stroke fill;
+          font-family: 'Cairo', system-ui, sans-serif; 
+          font-weight: 900; 
+          font-size: ${fontSize}px; 
+        }
+        .wm-sub { 
+          fill: #0f172a; 
+          stroke: #ffffff; 
+          stroke-width: 1.3px; 
+          paint-order: stroke fill;
+          font-family: 'Cairo', system-ui, sans-serif; 
+          font-weight: 800; 
+          font-size: ${Math.max(fontSize - 3, 11)}px; 
+        }
       </style>
       <g transform="rotate(${angle} ${patternWidth / 2} ${patternHeight / 2})" opacity="${opacity}">
-        <text x="50%" y="40%" text-anchor="middle" class="wm-main">${primaryText}</text>
-        <text x="50%" y="65%" text-anchor="middle" class="wm-sub">${secondaryText}</text>
+        <rect x="5%" y="15%" width="90%" height="70%" class="wm-badge" />
+        <text x="50%" y="43%" text-anchor="middle" class="wm-main">🔒 ${primaryText}</text>
+        <text x="50%" y="68%" text-anchor="middle" class="wm-sub">⚠️ ${secondaryText}</text>
       </g>
     </svg>
   `.trim();
