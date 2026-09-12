@@ -11,7 +11,9 @@ import {
   Activity,
   Smartphone,
   Settings,
-  X
+  X,
+  Link,
+  Check
 } from 'lucide-react';
 import { PitchPackage, TrackingSession } from '../types';
 import { 
@@ -20,7 +22,8 @@ import {
   getEcosystemConfig, 
   saveEcosystemConfig,
   getGeminiKey,
-  saveGeminiKey
+  saveGeminiKey,
+  getShareablePreviewUrl
 } from '../services/dalilakService';
 
 interface HeaderProps {
@@ -56,6 +59,7 @@ export const Header: React.FC<HeaderProps> = ({
   const [ecosystemKey, setEcosystemKey] = useState(() => getEcosystemConfig().key);
   const [geminiKey, setGeminiKey] = useState(() => getGeminiKey());
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [copiedPreviewLink, setCopiedPreviewLink] = useState(false);
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,6 +162,21 @@ export const Header: React.FC<HeaderProps> = ({
               className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 hover:text-slate-900 transition-colors cursor-pointer"
             >
               <ShieldCheck className={`w-5 h-5 ${currentPitch.watermarkSettings.enabled ? 'text-amber-500' : 'text-slate-400'}`} />
+            </button>
+
+            {/* Shareable Client Preview Link Button */}
+            <button
+              onClick={() => {
+                const url = getShareablePreviewUrl(currentPitch);
+                navigator.clipboard.writeText(url);
+                setCopiedPreviewLink(true);
+                setTimeout(() => setCopiedPreviewLink(false), 2500);
+              }}
+              title="نسخ رابط المعاينة التفاعلية لإرساله للعميل عبر واتساب"
+              className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-700 px-3 py-2 rounded-xl text-xs font-black shadow-xs transition-all cursor-pointer"
+            >
+              {copiedPreviewLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Link className="w-4 h-4 text-amber-400" />}
+              <span className="hidden sm:inline">{copiedPreviewLink ? 'تم نسخ الرابط!' : 'نسخ رابط المعاينة'}</span>
             </button>
 
             {/* WhatsApp Pitch Message Modal */}

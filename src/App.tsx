@@ -15,10 +15,11 @@ import {
   getSavedPitchPackages,
   fetchDalilakBusinesses,
   fetchLatestEcosystemActivity,
-  enrichPitchPackageWithEcosystemData
+  enrichPitchPackageWithEcosystemData,
+  fetchPitchPackageRemote
 } from './services/dalilakService';
 import { subscribeToTrackingUpdates } from './services/leadTrackingService';
-import { Sliders, Smartphone, Sparkles, Database } from 'lucide-react';
+import { Sliders, Smartphone, Sparkles, Database, Loader2 } from 'lucide-react';
 
 export function App() {
   const [currentPitch, setCurrentPitch] = useState<PitchPackage>(() => {
@@ -30,6 +31,7 @@ export function App() {
 
   const [mode, setMode] = useState<'admin' | 'client'>('admin');
   const [isClientStandalone, setIsClientStandalone] = useState(false);
+  const [isLoadingRemotePitch, setIsLoadingRemotePitch] = useState(false);
   const [isCoreLive, setIsCoreLive] = useState(false);
   const [ecosystemAlert, setEcosystemAlert] = useState<{
     business: DalilakBusiness;
@@ -62,14 +64,30 @@ export function App() {
   // 1. Check URL parameters for direct client pitch link & Auto-Detect latest ecosystem activity
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const pitchId = params.get('pitch');
-    if (pitchId) {
+    const pitchParam = params.get('pitch') || params.get('preview') || params.get('p');
+    const bizParam = params.get('biz') || params.get('b') || params.get('id');
+
+    if (pitchParam || bizParam) {
       setMode('client');
       setIsClientStandalone(true);
       const saved = getSavedPitchPackages();
-      const matched = saved.find(p => p.id === pitchId);
+      const matched = saved.find(p => (pitchParam && p.id === pitchParam) || (bizParam && p.businessId === bizParam));
+      
       if (matched) {
         setCurrentPitch(matched);
+      } else {
+        // Fetch and reconstruct from Ecosystem Supabase across devices (phones/desktops anywhere)
+        setIsLoadingRemotePitch(true);
+        fetchPitchPackageRemote(pitchParam || undefined, bizParam || undefined).then(remotePkg => {
+          if (remotePkg) {
+            setCurrentPitch(remotePkg);
+            savePitchPackage(remotePkg);
+          }
+        }).catch(err => {
+          console.warn('Error fetching remote pitch:', err);
+        }).finally(() => {
+          setIsLoadingRemotePitch(false);
+        });
       }
     } else {
       // Auto-detect latest activity from Ecosystem Supabase (e.g. مطعم المذاق العالمي from Stage 1)
@@ -202,6 +220,26 @@ export function App() {
               onOpenWatermarkSettings={() => setWatermarkControlsOpen(true)}
             />
 
+          </div>
+        ) : isLoadingRemotePitch ? (
+          /* High-Tech Standalone Remote Loading Screen */
+          <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center">
+            <div className="w-18 h-18 rounded-3xl bg-gradient-to-tr from-amber-500 to-amber-400 p-1 mb-5 shadow-xl shadow-amber-500/20 animate-bounce">
+              <div className="w-full h-full bg-slate-900 rounded-[22px] flex items-center justify-center text-amber-400 font-black text-2xl">
+                د
+              </div>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 mb-2">منظومة دليلك الذكية 🇪🇬</h2>
+            <p className="text-slate-600 text-xs sm:text-sm max-w-sm mb-5 font-medium leading-relaxed">
+              جاري فك تشفير وتجهيز المعاينة الحصرية لنشاطك التجاري من سيرفر المنظومة المباشر...
+            </p>
+            <div className="w-48 h-2 bg-slate-200 rounded-full overflow-hidden mb-3">
+              <div className="w-full h-full bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 animate-pulse" />
+            </div>
+            <span className="text-[11px] text-slate-400 font-bold flex items-center gap-1.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
+              <span>تحميل الأصول البصرية والخطة التسويقية</span>
+            </span>
           </div>
         ) : (
           /* Client Interactive Teaser Showcase */

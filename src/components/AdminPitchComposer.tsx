@@ -15,14 +15,18 @@ import {
   Calendar,
   Award,
   RefreshCw,
-  Database
+  Database,
+  Link,
+  ExternalLink,
+  Copy,
+  Check
 } from 'lucide-react';
 import { PitchPackage } from '../types';
 import { AssetPitchCard } from './AssetPitchCard';
 import { ServerTextPostsPanel } from './ServerTextPostsPanel';
 import { buildAssetPitchMessages } from '../utils/assetPitchMessageBuilder';
 import { getAcrylicMaterialStyles } from '../utils/mockupComposer';
-import { enrichPitchPackageWithEcosystemData } from '../services/dalilakService';
+import { enrichPitchPackageWithEcosystemData, getShareablePreviewUrl } from '../services/dalilakService';
 
 interface AdminPitchComposerProps {
   pitch: PitchPackage;
@@ -89,11 +93,14 @@ export const AdminPitchComposer: React.FC<AdminPitchComposerProps> = ({
   const standStyles = getAcrylicMaterialStyles(pitch.visualAssets.acrylicStand.material);
 
   const [isSyncingEcosystem, setIsSyncingEcosystem] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [ecosystemSyncStatus, setEcosystemSyncStatus] = useState<{
     synced: boolean;
     marketingFound: boolean;
     visualFound: boolean;
   }>({ synced: false, marketingFound: false, visualFound: false });
+
+  const shareableUrl = getShareablePreviewUrl(pitch);
 
   const triggerEcosystemSync = async () => {
     setIsSyncingEcosystem(true);
@@ -171,6 +178,55 @@ export const AdminPitchComposer: React.FC<AdminPitchComposerProps> = ({
             <Eye className="w-4 h-4" />
             <span>معاينة شاشة العرض (3D Stand)</span>
           </button>
+        </div>
+      </div>
+
+      {/* 1.5 Shareable Client Interactive Preview Link Banner */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700 rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="space-y-1.5 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
+              <Link className="w-3 h-3" />
+              <span>رابط المعاينة التفاعلية للعميل (مفعل ويعمل على جميع الأجهزة)</span>
+            </span>
+            <span className="text-emerald-400 text-xs font-bold flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span>جاهز للإرسال في واتساب</span>
+            </span>
+          </div>
+          <p className="text-xs text-slate-300 leading-relaxed font-medium">
+            عند فتح هذا الرابط على هاتف العميل، يتم تحميل العرض بالكامل من سيرفر المنظومة مباشرة متضمناً الأصول البصرية الـ 4، وخطة الـ 30 يوماً، وحملات الواتساب مع الحماية بالعلامة المائية.
+          </p>
+          <div className="pt-1">
+            <code className="text-xs font-mono text-amber-300 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 block truncate max-w-xl text-left" dir="ltr">
+              {shareableUrl}
+            </code>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(shareableUrl);
+              setCopiedLink(true);
+              setTimeout(() => setCopiedLink(false), 2500);
+            }}
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-4 py-3 rounded-xl shadow-md transition cursor-pointer"
+          >
+            {copiedLink ? <Check className="w-4 h-4 text-slate-950" /> : <Copy className="w-4 h-4 text-slate-950" />}
+            <span>{copiedLink ? 'تم نسخ الرابط!' : 'نسخ رابط المعاينة'}</span>
+          </button>
+
+          <a
+            href={shareableUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs px-3.5 py-3 rounded-xl border border-slate-600 transition cursor-pointer"
+          >
+            <ExternalLink className="w-4 h-4 text-slate-300" />
+            <span>فتح المعاينة ↗</span>
+          </a>
         </div>
       </div>
 

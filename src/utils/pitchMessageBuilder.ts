@@ -1,4 +1,5 @@
 import { PitchPackage } from '../types';
+import { getShareablePreviewUrl } from '../services/dalilakService';
 
 export type PitchMessageTone = 'authority' | 'gift' | 'urgent';
 
@@ -19,9 +20,8 @@ export function buildPitchMessages(
   const ownerName = pkg.business.owner_name ? `أ/ ${pkg.business.owner_name}` : 'يا فندم';
   const clientPhone = cleanEgyptianPhone(pkg.business.owner_phone || pkg.business.phone);
   
-  // Construct pitch link
-  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://dalilaak.com';
-  const pitchUrl = `${currentOrigin}/?pitch=${pkg.id}&token=${pkg.clientToken}`;
+  // Construct shareable pitch link with full business ID & pitch token
+  const pitchUrl = getShareablePreviewUrl(pkg);
 
   // Tone 1: Authority & Opportunity
   const textAuthority = `

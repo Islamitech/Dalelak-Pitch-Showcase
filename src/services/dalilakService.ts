@@ -912,3 +912,103 @@ export function getDemoBusinesses(): DalilakBusiness[] {
     }
   ];
 }
+
+/**
+ * Resolves shareable client preview URL that works on mobile or desktop anywhere
+ */
+export function getShareablePreviewUrl(pitch: PitchPackage): string {
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://dalilaak.com';
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
+  const cleanPath = pathname.endsWith('/') ? pathname : pathname + '/';
+  return `${origin}${cleanPath}?pitch=${encodeURIComponent(pitch.id)}&biz=${encodeURIComponent(pitch.businessId)}&token=${encodeURIComponent(pitch.clientToken)}`;
+}
+
+/**
+ * Fetch a pitch package from Ecosystem Supabase Server across devices
+ */
+export async function fetchPitchPackageRemote(pitchId?: string, bizId?: string): Promise<PitchPackage | null> {
+  const { url, key } = getEcosystemConfig();
+  if (!url || !key) return null;
+
+  try {
+    let endpoint = '';
+    if (pitchId) {
+      endpoint = `${url}/rest/v1/pitch_packages?id=eq.${encodeURIComponent(pitchId)}&select=*`;
+    } else if (bizId) {
+      endpoint = `${url}/rest/v1/pitch_packages?business_id=eq.${encodeURIComponent(bizId)}&order=updated_at.desc&limit=1`;
+    }
+
+    if (endpoint) {
+      const res = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          const r = rows[0];
+          const fullBiz = await fetchBusinessById(r.business_id);
+          const business: DalilakBusiness = fullBiz || {
+            id: r.business_id,
+            name_ar: r.business_name,
+            category: 'عام',
+            phone: '',
+            verification_status: 'verified'
+          };
+          const basePkg: PitchPackage = {
+            id: r.id,
+            businessId: r.business_id,
+            business,
+            clientToken: r.client_token || 'PREVIEW',
+            themeColor: r.theme_color || 'amber',
+            headline: r.headline || `خطة التحول الرقمي لنشاط «${r.business_name}»`,
+            subheadline: r.subheadline || '',
+            packageName: r.package_name || 'الباقة الذهبية المتكاملة',
+            originalPrice: r.original_price || 4800,
+            discountedPrice: r.discounted_price || 2450,
+            currency: r.currency || 'جنيه مصري',
+            discountExpiresHours: 48,
+            guaranteeText: 'ضمان استرجاع كامل للاستثمار خلال 14 يوماً في حال عدم الرضا.',
+            deliverables: r.deliverables || [],
+            visualAssets: r.visual_assets || {},
+            watermarkSettings: r.watermark_settings || {
+              enabled: true,
+              text: `معاينة خاصة • دليلك للمنظومة الذكية © ${r.business_name}`,
+              secondaryText: 'عينة تجريبية مؤمنة - غير مخصصة للاستخدام قبل التعاقد',
+              opacity: 0.22,
+              angle: -26,
+              fontSize: 16,
+              density: 'medium',
+              blockRightClick: true,
+              blockKeyboardShortcuts: true,
+              blurOnWindowBlur: false
+            },
+            status: r.status || 'ready',
+            createdAt: r.created_at || new Date().toISOString(),
+            updatedAt: r.updated_at || new Date().toISOString()
+          };
+          const { enrichedPitch } = await enrichPitchPackageWithEcosystemData(basePkg);
+          return enrichedPitch;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Error fetching remote pitch package:', err);
+  }
+
+  // Fallback: if bizId is present but not yet in pitch_packages table
+  if (bizId) {
+    const biz = await fetchBusinessById(bizId);
+    if (biz) {
+      const def = createDefaultPitchPackage(biz);
+      const { enrichedPitch } = await enrichPitchPackageWithEcosystemData(def);
+      return enrichedPitch;
+    }
+  }
+
+  return null;
+}
