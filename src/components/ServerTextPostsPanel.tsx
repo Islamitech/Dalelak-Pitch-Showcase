@@ -30,13 +30,15 @@ export const ServerTextPostsPanel: React.FC<ServerTextPostsPanelProps> = ({
   clientPhone,
   businessName
 }) => {
-  const [activeTab, setActiveTab] = useState<'calendar' | 'ready_posts'>('calendar');
+  const [activeTab, setActiveTab] = useState<'calendar' | 'ready_posts' | 'whatsapp_campaigns'>('calendar');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [dataSource, setDataSource] = useState<'local' | 'cloud' | 'default'>('default');
 
-  const [calendarDays, setCalendarDays] = useState<any[]>(() => pitch.visualAssets.contentPlanSnippet || []);
-  const [readyPosts, setReadyPosts] = useState<any[]>(() => pitch.visualAssets.socialMockupPosts || []);
+  const [calendarDays, setCalendarDays] = useState<any[]>(() => pitch.marketingData?.calendar || pitch.visualAssets.contentPlanSnippet || []);
+  const [readyPosts, setReadyPosts] = useState<any[]>(() => pitch.marketingData?.readyPosts || pitch.visualAssets.socialMockupPosts || []);
+  const [whatsappCampaigns, setWhatsappCampaigns] = useState<any[]>(() => pitch.marketingData?.whatsappCampaigns || []);
+  const [brandPersona, setBrandPersona] = useState<any>(() => pitch.marketingData?.persona || null);
 
   const syncMarketingData = async () => {
     setIsSyncing(true);
@@ -65,6 +67,12 @@ export const ServerTextPostsPanel: React.FC<ServerTextPostsPanelProps> = ({
             tag: p.badge || p.platform || 'إعلان ترويجي'
           })));
         }
+        if (mkt.whatsappCampaigns && Array.isArray(mkt.whatsappCampaigns) && mkt.whatsappCampaigns.length > 0) {
+          setWhatsappCampaigns(mkt.whatsappCampaigns);
+        }
+        if (mkt.persona) {
+          setBrandPersona(mkt.persona);
+        }
       }
 
       // 2. Fetch from Ecosystem Supabase Server (hzlbbzxccqfdeyumtxph)
@@ -90,6 +98,13 @@ export const ServerTextPostsPanel: React.FC<ServerTextPostsPanelProps> = ({
           })));
           setDataSource('cloud');
         }
+        if (remoteData.whatsapp_campaigns && Array.isArray(remoteData.whatsapp_campaigns) && remoteData.whatsapp_campaigns.length > 0) {
+          setWhatsappCampaigns(remoteData.whatsapp_campaigns);
+          setDataSource('cloud');
+        }
+        if (remoteData.persona) {
+          setBrandPersona(remoteData.persona);
+        }
       }
     } catch (e) {
       console.warn('Sync error:', e);
@@ -100,7 +115,7 @@ export const ServerTextPostsPanel: React.FC<ServerTextPostsPanelProps> = ({
 
   useEffect(() => {
     syncMarketingData();
-  }, [pitch.business.id]);
+  }, [pitch.business.id, pitch.marketingData]);
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -177,7 +192,7 @@ ${post.caption}
         </div>
 
         {/* Tab switcher */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl flex-wrap">
           <button
             type="button"
             onClick={() => setActiveTab('calendar')}
@@ -202,8 +217,37 @@ ${post.caption}
             <FileText className="w-3.5 h-3.5" />
             <span>البوستات الإعلانية الجاهزة ({readyPosts.length})</span>
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('whatsapp_campaigns')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'whatsapp_campaigns'
+                ? 'bg-white text-emerald-600 shadow-xs font-black'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>قوالب رسائل الواتساب المباشرة ({whatsappCampaigns.length > 0 ? whatsappCampaigns.length : 4})</span>
+          </button>
         </div>
       </div>
+
+      {/* Brand Persona & Slogan Banner */}
+      {brandPersona && brandPersona.slogan && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between gap-3 text-xs text-amber-950">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              شعار وهوية النشاط الرسمية: <strong className="text-amber-900 font-black">«{brandPersona.slogan}»</strong>
+            </span>
+          </div>
+          {brandPersona.category && (
+            <span className="bg-amber-200/70 text-amber-900 px-2 py-0.5 rounded-md font-bold text-[10px] shrink-0">
+              {brandPersona.category}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Tab 1: Content Calendar Days */}
       {activeTab === 'calendar' && (
@@ -335,6 +379,106 @@ ${post.caption}
                   >
                     <Send className="w-3.5 h-3.5" />
                     <span>واتساب</span>
+                  </a>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Tab 3: Direct WhatsApp Campaigns */}
+      {activeTab === 'whatsapp_campaigns' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {(whatsappCampaigns.length > 0 ? whatsappCampaigns : [
+            {
+              id: 'camp_welcome',
+              title: 'رسالة حجز واستفسار ترحيبية',
+              goal: 'تأكيد الحجز أو استقبال طلب الدليفري',
+              messageText: `يا مرحب بيك يا غالي في ${businessName}! 🌸 نورتنا وشرفتنا باستفسارك.
+منيو النشاط كله تحت أمرك، بنقدملك أعلى جودة ونظافة مضمونة.
+حبيت تطلب دليفري يوصلك لحد البيت، ولا تحجز زيارتك وتعيش اللمة معانا؟
+قولنا طلبك وإحنا في الخدمة علطول! 😊`
+            },
+            {
+              id: 'camp_care',
+              title: 'رسالة متابعة ورعاية بعد الخدمة',
+              goal: 'بناء ولاء قوي والتأكد من رضا العميل التام',
+              messageText: `ألف هنا وشفا على قلبك يا طيب! ❤️
+حبينا نطمن منك.. يا رب تكون تجربتك مع ${businessName} عجبتك وتكون الخدمة كانت على ذوقك؟
+رأيك يهمنا جداً وبيه بنكبر ونطور من نفسنا دايماً. لو عندك أي ملاحظة أو اقتراح، إحنا بنسمعك بكل حب وجدعنة! 🤝`
+            },
+            {
+              id: 'camp_reviews',
+              title: 'طلب تقييم خرائط Google Maps',
+              goal: 'الحصول على 5 نجوم لتعزيز السمعة الرقمية',
+              messageText: `مساء الخير يا فندم ⭐️
+كلامك الطيب ودعمك هو أكبر مكسب لينا في ${businessName}.
+لو وقت حضرتك يسمح بدقيقة واحدة، يسعدنا جداً تشاركنا برأيك على صفحتنا الرسمية في Google Maps بالضغط هنا.
+تقييمك بيفرق معانا وبيخلينا نخدمك أحسن كل مرة! شكراً لذوقك ولدعمك الغالي. 🌹`
+            },
+            {
+              id: 'camp_promo',
+              title: 'حملة العروض والمواسم الترويجية',
+              goal: 'إعادة تنشيط العملاء السابقين وزيادة المبيعات',
+              messageText: `علشان إنت من عيلتنا الغالية في ${businessName}.. جهزنا لك عرض حصري خاص بيك الأسبوع ده! 🔥
+خصم فوري على كافة طلباتك أو وجبة إضافية مجانية عند زيارتنا اليومين دول.
+ورّينا الرسالة دي عند الكاشير واستمتع بالعرض. مستنيينك تنورنا وتفرحنا بزيارتك! 🎉`
+            }
+          ]).map((camp, idx) => {
+            const uniqueId = `camp_${camp.id || idx}`;
+            const campText = camp.messageText || camp.content || '';
+            const waUrl = createWhatsAppDirectUrl(clientPhone, campText);
+
+            return (
+              <div
+                key={uniqueId}
+                className="p-4 rounded-xl border border-emerald-200/80 bg-emerald-50/40 hover:bg-white hover:border-emerald-400 transition-all space-y-3 flex flex-col justify-between"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-1">
+                    <span className="bg-emerald-600 text-white font-black text-[10px] px-2.5 py-0.5 rounded-lg">
+                      {camp.title || 'حملة واتساب'}
+                    </span>
+                    {camp.goal && (
+                      <span className="text-[10px] text-slate-500 font-bold">
+                        الهدف: {camp.goal}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-slate-700 bg-white p-3 rounded-xl border border-slate-200/80 leading-relaxed font-medium whitespace-pre-line">
+                    {campText}
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(uniqueId, campText)}
+                    className="py-1.5 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                  >
+                    {copiedId === uniqueId ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-700 font-black">تم النسخ ✓</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-slate-400" />
+                        <span>نسخ النص</span>
+                      </>
+                    )}
+                  </button>
+
+                  <a
+                    href={waUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>إرسال واتساب مباشر 🚀</span>
                   </a>
                 </div>
               </div>

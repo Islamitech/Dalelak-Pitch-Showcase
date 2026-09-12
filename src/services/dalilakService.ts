@@ -1,4 +1,4 @@
-import { DalilakBusiness, PitchPackage, PromoteLeadPayload, WatermarkSettings } from '../types';
+import { DalilakBusiness, PitchPackage, PromoteLeadPayload, WatermarkSettings, EcosystemActivitySummary } from '../types';
 
 // Default Supabase configuration for Dalilak Core Production
 const DEFAULT_CORE_URL = 'https://xdqpbajymacpdccorjcj.supabase.co';
@@ -441,6 +441,156 @@ export function savePitchPackage(pitch: PitchPackage) {
 }
 
 /**
+ * Fetches all saved activities from Ecosystem Supabase Server (marketing_activities table)
+ */
+export async function fetchRecentEcosystemActivities(limit = 30): Promise<EcosystemActivitySummary[]> {
+  const { url, key } = getEcosystemConfig();
+  if (!url || !key) return [];
+  try {
+    const endpoint = `${url}/rest/v1/marketing_activities?select=*&order=updated_at.desc&limit=${limit}`;
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'apikey': key,
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      if (Array.isArray(rows)) {
+        return rows.map((r: any) => ({
+          business_id: r.business_id,
+          business_name: r.business_name,
+          category: r.category || 'عام',
+          city: r.city || 'مصر',
+          phone: r.phone || '',
+          persona: r.persona || {},
+          calendar: r.calendar || [],
+          ready_posts: r.ready_posts || [],
+          whatsapp_campaigns: r.whatsapp_campaigns || [],
+          is_promoted_to_core: r.is_promoted_to_core || false,
+          updated_at: r.updated_at,
+          hasMarketing: Array.isArray(r.calendar) && r.calendar.length > 0,
+          hasVisual: false
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn('Network error fetching ecosystem activities:', err);
+  }
+  return [];
+}
+
+/**
+ * Fetch a single business by ID from Core Supabase, or fall back to constructing it from Ecosystem data
+ */
+export async function fetchBusinessById(businessId: string): Promise<DalilakBusiness | null> {
+  const { url, key } = getCoreConfig();
+  try {
+    const endpoint = `${url}/rest/v1/businesses?id=eq.${encodeURIComponent(businessId)}&select=*`;
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'apikey': key,
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data[0];
+      }
+    }
+  } catch (err) {
+    console.warn('Error fetching business by ID from core:', err);
+  }
+
+  // Fallback: check ecosystem marketing_activities
+  const ecoActivity = await fetchEcosystemMarketingActivity(businessId);
+  if (ecoActivity) {
+    return {
+      id: ecoActivity.business_id,
+      name_ar: ecoActivity.business_name,
+      category: ecoActivity.category || 'عام',
+      city: ecoActivity.city || 'مصر',
+      phone: ecoActivity.phone || '',
+      verification_status: 'verified'
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Fetches the most recently updated activity in the Ecosystem Supabase Server
+ */
+export async function fetchLatestEcosystemActivity(): Promise<{
+  business: DalilakBusiness;
+  marketingActivity: EcosystemActivitySummary;
+} | null> {
+  const list = await fetchRecentEcosystemActivities(1);
+  if (list.length === 0) return null;
+  const top = list[0];
+  const fullBiz = await fetchBusinessById(top.business_id);
+  const business: DalilakBusiness = fullBiz || {
+    id: top.business_id,
+    name_ar: top.business_name,
+    category: top.category || 'عام',
+    city: top.city || 'مصر',
+    phone: top.phone || '',
+    verification_status: 'verified'
+  };
+  return { business, marketingActivity: top };
+}
+
+/**
+ * Saves or updates visual asset in Ecosystem Supabase Server (visual_assets table)
+ */
+export async function saveVisualAssetToEcosystem(
+  businessId: string,
+  businessName: string,
+  assetKey: 'logo' | 'catalog' | 'social_post' | 'promo_offer',
+  imageUrl: string
+): Promise<boolean> {
+  const { url, key } = getEcosystemConfig();
+  if (!url || !key) return false;
+  try {
+    const payload: Record<string, any> = {
+      business_id: businessId,
+      business_name: businessName,
+      updated_at: new Date().toISOString()
+    };
+    if (assetKey === 'logo') {
+      payload.logo_data_url = imageUrl;
+    } else if (assetKey === 'catalog') {
+      payload.catalog_image_url = imageUrl;
+    } else if (assetKey === 'promo_offer') {
+      payload.promo_offer_image_url = imageUrl;
+    } else if (assetKey === 'social_post') {
+      payload.social_frames = [{ imageUrl, timestamp: new Date().toISOString() }];
+    }
+
+    const endpoint = `${url}/rest/v1/visual_assets`;
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'apikey': key,
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify(payload)
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('Failed saving visual asset to ecosystem:', err);
+    return false;
+  }
+}
+
+/**
  * Fetches real marketing plan and ready posts from Ecosystem Supabase Server
  */
 export async function fetchEcosystemMarketingActivity(businessId: string): Promise<any | null> {
@@ -507,36 +657,58 @@ export async function enrichPitchPackageWithEcosystemData(pitch: PitchPackage): 
   let marketingFound = false;
   let visualFound = false;
   const updatedVisualAssets = { ...pitch.visualAssets };
+  let updatedMarketingData = pitch.marketingData || {};
+
+  // Ground-truth fallback image from business photo in Core if exists
+  const firstBusinessPhoto = Array.isArray(pitch.business.photos) && pitch.business.photos.length > 0
+    ? (typeof pitch.business.photos[0] === 'string' ? pitch.business.photos[0] : (pitch.business.photos[0] as any)?.url)
+    : '';
 
   try {
     // 1. Fetch visual assets from Ecosystem
     const visualData = await fetchEcosystemVisualAssets(pitch.businessId);
     if (visualData) {
       visualFound = true;
-      if (visualData.logo_data_url || visualData.logo_svg) {
-        updatedVisualAssets.logoDataUrl = visualData.logo_data_url || visualData.logo_svg;
+      if (visualData.logo_data_url || visualData.logo_vector_svg) {
+        updatedVisualAssets.logoDataUrl = visualData.logo_data_url || visualData.logo_vector_svg;
       }
       if (visualData.signboard_photo_url) {
         updatedVisualAssets.signboardPhotoUrl = visualData.signboard_photo_url;
       }
-      if (Array.isArray(visualData.menu_catalog) && visualData.menu_catalog.length > 0) {
-        const itemWithImg = visualData.menu_catalog.find((m: any) => m.imageUrl);
-        if (itemWithImg?.imageUrl) {
-          updatedVisualAssets.catalogDataUrl = itemWithImg.imageUrl;
+      if (visualData.catalog_image_url) {
+        updatedVisualAssets.catalogDataUrl = visualData.catalog_image_url;
+      }
+      if (visualData.promo_offer_image_url) {
+        updatedVisualAssets.promoOfferDataUrl = visualData.promo_offer_image_url;
+      }
+      if (Array.isArray(visualData.social_frames) && visualData.social_frames.length > 0) {
+        const frameImg = visualData.social_frames[0]?.imageUrl || visualData.social_frames[0];
+        if (frameImg && updatedVisualAssets.socialMockupPosts && updatedVisualAssets.socialMockupPosts.length > 0) {
+          updatedVisualAssets.socialMockupPosts[0] = {
+            ...updatedVisualAssets.socialMockupPosts[0],
+            imageUrl: typeof frameImg === 'string' ? frameImg : frameImg.url
+          };
         }
       }
-      if (Array.isArray(visualData.promo_banners) && visualData.promo_banners.length > 0) {
-        const bannerWithImg = visualData.promo_banners.find((b: any) => b.imageUrl);
-        if (bannerWithImg?.imageUrl) {
-          updatedVisualAssets.promoOfferDataUrl = bannerWithImg.imageUrl;
-        }
+      if (visualData.acrylic_stand && typeof visualData.acrylic_stand === 'object') {
+        updatedVisualAssets.acrylicStand = {
+          ...updatedVisualAssets.acrylicStand,
+          ...visualData.acrylic_stand
+        };
       }
     }
 
-    // 2. Fetch marketing activities from Ecosystem
+    // Ground-truth fallback if visual studio is paused and no logo yet
+    if (!updatedVisualAssets.logoDataUrl && firstBusinessPhoto) {
+      updatedVisualAssets.signboardPhotoUrl = firstBusinessPhoto;
+    }
+
+    // 2. Fetch marketing activities from Ecosystem (Phase 1)
     const mktData = await fetchEcosystemMarketingActivity(pitch.businessId);
     if (mktData) {
       marketingFound = true;
+
+      // Extract calendar (first 6 for snippet teaser)
       if (Array.isArray(mktData.calendar) && mktData.calendar.length > 0) {
         updatedVisualAssets.contentPlanSnippet = mktData.calendar.slice(0, 6).map((c: any) => ({
           day: c.day,
@@ -546,23 +718,42 @@ export async function enrichPitchPackageWithEcosystemData(pitch: PitchPackage): 
           callToAction: c.callToAction
         }));
       }
+
+      // Extract ready posts
       if (Array.isArray(mktData.ready_posts) && mktData.ready_posts.length > 0) {
         updatedVisualAssets.socialMockupPosts = mktData.ready_posts.map((p: any, i: number) => ({
           id: p.id || `post_${i}`,
           headline: p.title || p.headline,
           caption: p.content || p.caption,
           accent: i === 0 ? 'amber' : i === 1 ? 'emerald' : 'blue',
-          tag: p.badge || p.platform || 'إعلان ترويجي'
+          tag: p.badge || p.platform || 'إعلان ترويجي',
+          imageUrl: updatedVisualAssets.socialMockupPosts[i]?.imageUrl || (i === 0 ? firstBusinessPhoto : undefined)
         }));
       }
+
+      // Ingest complete marketing data
+      updatedMarketingData = {
+        persona: mktData.persona || {},
+        calendar: mktData.calendar || [],
+        readyPosts: mktData.ready_posts || [],
+        whatsappCampaigns: mktData.whatsapp_campaigns || []
+      };
     }
   } catch (err) {
     console.warn('Error enriching pitch package:', err);
   }
 
+  // If brand persona has slogan, adopt it in the headline
+  let headline = pitch.headline;
+  if (updatedMarketingData.persona?.slogan) {
+    headline = `«${pitch.business.name_ar || pitch.business.name_en}» — ${updatedMarketingData.persona.slogan}`;
+  }
+
   const enrichedPitch: PitchPackage = {
     ...pitch,
+    headline,
     visualAssets: updatedVisualAssets,
+    marketingData: updatedMarketingData,
     updatedAt: new Date().toISOString()
   };
 

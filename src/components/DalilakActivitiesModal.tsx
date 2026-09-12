@@ -11,11 +11,17 @@ import {
   Settings, 
   Check, 
   Sparkles,
-  Layers
+  Layers,
+  Database,
+  Calendar,
+  MessageSquare,
+  FileText
 } from 'lucide-react';
-import { DalilakBusiness } from '../types';
+import { DalilakBusiness, EcosystemActivitySummary } from '../types';
 import { 
   fetchDalilakBusinesses, 
+  fetchRecentEcosystemActivities,
+  fetchBusinessById,
   getCoreConfig, 
   saveCoreConfig, 
   extractBusinessGoogleInfo 
@@ -46,6 +52,8 @@ export const DalilakActivitiesModal: React.FC<DalilakActivitiesModalProps> = ({
   onSelectBusiness,
   currentSelectedId
 }) => {
+  const [activeTab, setActiveTab] = useState<'ecosystem' | 'core'>('ecosystem');
+  const [ecosystemActivities, setEcosystemActivities] = useState<EcosystemActivitySummary[]>([]);
   const [businesses, setBusinesses] = useState<DalilakBusiness[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,25 +67,34 @@ export const DalilakActivitiesModal: React.FC<DalilakActivitiesModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      loadBusinesses();
+      loadAllData();
       const cfg = getCoreConfig();
       setCustomUrl(cfg.url);
       setCustomKey(cfg.key);
     }
   }, [isOpen]);
 
-  const loadBusinesses = async () => {
+  const loadAllData = async () => {
     setLoading(true);
     setErrorNotice(null);
     try {
-      const res = await fetchDalilakBusinesses({
-        search: searchTerm,
-        governorate: selectedGov === 'الكل' ? undefined : selectedGov,
-        limit: 50
-      });
-      setBusinesses(res.data);
-      if (res.error) {
-        setErrorNotice(res.error);
+      const [ecoRows, coreRes] = await Promise.all([
+        fetchRecentEcosystemActivities(30),
+        fetchDalilakBusinesses({
+          search: searchTerm,
+          governorate: selectedGov === 'الكل' ? undefined : selectedGov,
+          limit: 60
+        })
+      ]);
+      setEcosystemActivities(ecoRows);
+      setBusinesses(coreRes.data);
+      if (ecoRows.length > 0 && !searchTerm) {
+        setActiveTab('ecosystem');
+      } else if (ecoRows.length === 0) {
+        setActiveTab('core');
+      }
+      if (coreRes.error && ecoRows.length === 0) {
+        setErrorNotice(coreRes.error);
       }
     } catch (err) {
       console.error(err);
@@ -90,8 +107,36 @@ export const DalilakActivitiesModal: React.FC<DalilakActivitiesModalProps> = ({
   const handleSaveConfig = () => {
     saveCoreConfig(customUrl, customKey);
     setShowConfig(false);
-    loadBusinesses();
+    loadAllData();
   };
+
+  const handleSelectEcosystemItem = async (eco: EcosystemActivitySummary) => {
+    let biz = businesses.find(b => b.id === eco.business_id);
+    if (!biz) {
+      biz = (await fetchBusinessById(eco.business_id)) || undefined;
+    }
+    const finalBiz: DalilakBusiness = biz || {
+      id: eco.business_id,
+      name_ar: eco.business_name,
+      category: eco.category || 'عام',
+      city: eco.city || 'مصر',
+      phone: eco.phone || '',
+      verification_status: 'verified'
+    };
+    onSelectBusiness(finalBiz);
+    onClose();
+  };
+
+  const filteredEcosystem = ecosystemActivities.filter(item => {
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return true;
+    const matchName = (item.business_name || '').toLowerCase().includes(term);
+    const matchCat = (item.category || '').toLowerCase().includes(term);
+    const matchCity = (item.city || '').toLowerCase().includes(term);
+    const matchPhone = (item.phone || '').includes(term);
+    const matchId = (item.business_id || '').toLowerCase().includes(term);
+    return matchName || matchCat || matchCity || matchPhone || matchId;
+  });
 
   const filteredBusinesses = businesses.filter(b => {
     const term = searchTerm.toLowerCase().trim();
@@ -181,43 +226,84 @@ export const DalilakActivitiesModal: React.FC<DalilakActivitiesModalProps> = ({
           </div>
         )}
 
+        {/* Dual Tab Navigation: Ecosystem Server Hub vs Core Database */}
+        <div className="flex items-center border-b border-slate-200 bg-slate-100/80 p-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('ecosystem')}
+            className={`flex-1 py-2.5 px-3.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition cursor-pointer ${
+              activeTab === 'ecosystem'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-white text-slate-700 hover:bg-slate-200/80 border border-slate-200'
+            }`}
+          >
+            <Database className="w-4 h-4 text-emerald-300" />
+            <span>أنشطة سيرفر المنظومة المساعد (المرحلة 1 و 2)</span>
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+              activeTab === 'ecosystem' ? 'bg-emerald-800 text-emerald-100' : 'bg-slate-200 text-slate-700'
+            }`}>
+              {ecosystemActivities.length} جاهز
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('core')}
+            className={`flex-1 py-2.5 px-3.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition cursor-pointer ${
+              activeTab === 'core'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'bg-white text-slate-700 hover:bg-slate-200/80 border border-slate-200'
+            }`}
+          >
+            <Store className="w-4 h-4 text-amber-200" />
+            <span>كافة أنشطة السيرفر الأساسي (Core Supabase)</span>
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+              activeTab === 'core' ? 'bg-amber-800 text-amber-100' : 'bg-slate-200 text-slate-700'
+            }`}>
+              {filteredBusinesses.length}
+            </span>
+          </button>
+        </div>
+
         {/* Filter & Search Bar */}
         <div className="p-4 border-b border-slate-100 bg-white flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="ابحث باسم النشاط، رقم التليفون، المدينة..."
+              placeholder={activeTab === 'ecosystem' ? 'ابحث في مخرجات المنظومة المحفوظة...' : 'ابحث باسم النشاط، رقم التليفون، المدينة...'}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-3 pr-10 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-hidden transition-all"
             />
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-            {GOVERNORATES.map((gov) => (
-              <button
-                key={gov}
-                onClick={() => setSelectedGov(gov)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
-                  selectedGov === gov
-                    ? 'bg-amber-500 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {gov}
-              </button>
-            ))}
+          {activeTab === 'core' && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+              {GOVERNORATES.map((gov) => (
+                <button
+                  key={gov}
+                  onClick={() => setSelectedGov(gov)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                    selectedGov === gov
+                      ? 'bg-amber-500 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {gov}
+                </button>
+              ))}
+            </div>
+          )}
 
-            <button
-              onClick={loadBusinesses}
-              disabled={loading}
-              title="تحديث القائمة"
-              className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-amber-600' : ''}`} />
-            </button>
-          </div>
+          <button
+            onClick={loadAllData}
+            disabled={loading}
+            title="تحديث القائمة"
+            className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer self-end sm:self-center shrink-0"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-amber-600' : ''}`} />
+          </button>
         </div>
 
         {errorNotice && (
@@ -231,8 +317,105 @@ export const DalilakActivitiesModal: React.FC<DalilakActivitiesModalProps> = ({
           {loading ? (
             <div className="py-16 text-center text-slate-400">
               <RefreshCw className="w-8 h-8 animate-spin mx-auto text-amber-500 mb-2" />
-              <p className="text-sm font-bold">جاري تحميل أنشطة دليلك...</p>
+              <p className="text-sm font-bold">جاري فحص وتحديث بيانات المنظومة...</p>
             </div>
+          ) : activeTab === 'ecosystem' ? (
+            filteredEcosystem.length === 0 ? (
+              <div className="py-16 text-center text-slate-400">
+                <Database className="w-12 h-12 mx-auto text-slate-300 mb-2" />
+                <p className="text-sm font-bold text-slate-700">لا توجد أنشطة محفوظة في سيرفر المساعدين حالياً</p>
+                <p className="text-xs text-slate-400 mt-1">قم بتوليد خطة تسويقية في (التطبيق 1) وحفظها لتظهر هنا فوراً</p>
+              </div>
+            ) : (
+              filteredEcosystem.map((eco) => {
+                const isSelected = currentSelectedId === eco.business_id;
+                const calendarCount = Array.isArray(eco.calendar) ? eco.calendar.length : 0;
+                const readyPostsCount = Array.isArray(eco.ready_posts) ? eco.ready_posts.length : 0;
+                const campaignsCount = Array.isArray(eco.whatsapp_campaigns) ? eco.whatsapp_campaigns.length : 0;
+
+                return (
+                  <div
+                    key={eco.business_id}
+                    onClick={() => handleSelectEcosystemItem(eco)}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                      isSelected
+                        ? 'bg-emerald-50/90 border-emerald-300 ring-2 ring-emerald-500/20 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-emerald-300 hover:shadow-xs'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3.5">
+                      <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0 mt-0.5">
+                        <Database className="w-6 h-6" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-base font-black text-slate-950">{eco.business_name}</h3>
+                          <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                            {eco.category || 'نشاط تجاري'}
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full">
+                            <Check className="w-3 h-3 text-emerald-600" />
+                            جاهز من استوديو التسويق (المرحلة 1) ⚡
+                          </span>
+                        </div>
+
+                        {eco.persona?.slogan && (
+                          <p className="text-xs text-amber-900 font-semibold italic bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-block">
+                            «{eco.persona.slogan}»
+                          </p>
+                        )}
+
+                        <div className="flex items-center gap-3 text-xs text-slate-600 flex-wrap pt-0.5">
+                          <span className="inline-flex items-center gap-1 font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">
+                            <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                            {calendarCount} يوماً خطة محتوى
+                          </span>
+                          <span className="inline-flex items-center gap-1 font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">
+                            <FileText className="w-3.5 h-3.5 text-blue-600" />
+                            {readyPostsCount} بوستات جاهزة
+                          </span>
+                          <span className="inline-flex items-center gap-1 font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">
+                            <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                            {campaignsCount} حملات واتساب
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-4 text-xs text-slate-500 pt-1 flex-wrap font-medium">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{eco.city || 'مصر'}</span>
+                          </span>
+                          {eco.phone && (
+                            <span className="flex items-center gap-1 font-mono">
+                              <Phone className="w-3.5 h-3.5 text-slate-400" />
+                              <span dir="ltr">{eco.phone}</span>
+                            </span>
+                          )}
+                          {eco.updated_at && (
+                            <span className="flex items-center gap-1 text-[11px] text-slate-400 font-mono">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              <span>{new Date(eco.updated_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                      <button
+                        className={`text-xs font-black px-4 py-2 rounded-xl transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-xs'
+                        }`}
+                      >
+                        {isSelected ? 'العرض الحالي ✓' : 'تحميل ومزامنة العرض ←'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )
           ) : filteredBusinesses.length === 0 ? (
             <div className="py-16 text-center text-slate-400">
               <Store className="w-12 h-12 mx-auto text-slate-300 mb-2" />

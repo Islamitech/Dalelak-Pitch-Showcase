@@ -96,10 +96,41 @@ export interface PitchPackage {
     contentPlanSnippet: ContentPlanItem[];
     acrylicStand: AcrylicStandConfig;
   };
+  marketingData?: {
+    persona?: any;
+    calendar?: any[];
+    readyPosts?: any[];
+    whatsappCampaigns?: WhatsAppCampaignItem[];
+  };
   watermarkSettings: WatermarkSettings;
   status: 'draft' | 'ready' | 'viewed' | 'negotiating' | 'promoted';
   createdAt: string;
   updatedAt: string;
+}
+
+export interface WhatsAppCampaignItem {
+  id?: string;
+  type?: string;
+  title: string;
+  goal?: string;
+  audience?: string;
+  messageText: string;
+}
+
+export interface EcosystemActivitySummary {
+  business_id: string;
+  business_name: string;
+  category?: string;
+  city?: string;
+  phone?: string;
+  persona?: any;
+  calendar?: any[];
+  ready_posts?: any[];
+  whatsapp_campaigns?: any[];
+  is_promoted_to_core?: boolean;
+  updated_at?: string;
+  hasMarketing: boolean;
+  hasVisual: boolean;
 }
 
 export interface SectionViewStat {

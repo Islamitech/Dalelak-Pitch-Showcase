@@ -13,10 +13,12 @@ import {
   getDemoBusinesses, 
   savePitchPackage, 
   getSavedPitchPackages,
-  fetchDalilakBusinesses
+  fetchDalilakBusinesses,
+  fetchLatestEcosystemActivity,
+  enrichPitchPackageWithEcosystemData
 } from './services/dalilakService';
 import { subscribeToTrackingUpdates } from './services/leadTrackingService';
-import { Sliders, Smartphone } from 'lucide-react';
+import { Sliders, Smartphone, Sparkles, Database } from 'lucide-react';
 
 export function App() {
   const [currentPitch, setCurrentPitch] = useState<PitchPackage>(() => {
@@ -29,6 +31,10 @@ export function App() {
   const [mode, setMode] = useState<'admin' | 'client'>('admin');
   const [isClientStandalone, setIsClientStandalone] = useState(false);
   const [isCoreLive, setIsCoreLive] = useState(false);
+  const [ecosystemAlert, setEcosystemAlert] = useState<{
+    business: DalilakBusiness;
+    marketingActivity: any;
+  } | null>(null);
 
   // Modals state
   const [activitiesModalOpen, setActivitiesModalOpen] = useState(false);
@@ -39,7 +45,21 @@ export function App() {
   // Real-time tracking sessions
   const [liveSessions, setLiveSessions] = useState<TrackingSession[]>([]);
 
-  // 1. Check URL parameters for direct client pitch link
+  const handleSelectBusiness = async (business: DalilakBusiness) => {
+    const initialPkg = createDefaultPitchPackage(business);
+    setCurrentPitch(initialPkg);
+    savePitchPackage(initialPkg);
+
+    try {
+      const { enrichedPitch } = await enrichPitchPackageWithEcosystemData(initialPkg);
+      setCurrentPitch(enrichedPitch);
+      savePitchPackage(enrichedPitch);
+    } catch (err) {
+      console.warn('Ecosystem enrichment error on selection:', err);
+    }
+  };
+
+  // 1. Check URL parameters for direct client pitch link & Auto-Detect latest ecosystem activity
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const pitchId = params.get('pitch');
@@ -51,6 +71,18 @@ export function App() {
       if (matched) {
         setCurrentPitch(matched);
       }
+    } else {
+      // Auto-detect latest activity from Ecosystem Supabase (e.g. مطعم المذاق العالمي from Stage 1)
+      fetchLatestEcosystemActivity().then(latest => {
+        if (latest) {
+          if (currentPitch.businessId === 'biz_sultan_01') {
+            // Automatically switch from dummy/demo Sultan to the real activity saved in Ecosystem
+            handleSelectBusiness(latest.business);
+          } else if (latest.business.id !== currentPitch.businessId) {
+            setEcosystemAlert(latest);
+          }
+        }
+      }).catch(() => {});
     }
 
     // Check core connection
@@ -65,12 +97,6 @@ export function App() {
 
     return () => unsub();
   }, []);
-
-  const handleSelectBusiness = (business: DalilakBusiness) => {
-    const newPkg = createDefaultPitchPackage(business);
-    setCurrentPitch(newPkg);
-    savePitchPackage(newPkg);
-  };
 
   const handleUpdatePitch = (updated: PitchPackage) => {
     setCurrentPitch(updated);
@@ -104,6 +130,40 @@ export function App() {
             <Sliders className="w-3 h-3" />
             <span>العودة للوحة الإدارة ←</span>
           </button>
+        </div>
+      )}
+
+      {/* Ecosystem Smart Sync Alert Banner */}
+      {ecosystemAlert && mode === 'admin' && (
+        <div className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-700 text-white px-4 py-2.5 text-xs font-bold flex items-center justify-between shadow-md border-b border-emerald-500 animate-in slide-in-from-top duration-300">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-300 animate-ping" />
+            <Sparkles className="w-4 h-4 text-emerald-200" />
+            <span>
+              تم رصد مخرجات تسويقية حديثة في سيرفر المنظومة لنشاط: <strong className="text-amber-300 font-black text-sm">«{ecosystemAlert.business.name_ar}»</strong>
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                handleSelectBusiness(ecosystemAlert.business);
+                setEcosystemAlert(null);
+              }}
+              className="bg-white hover:bg-emerald-50 text-emerald-950 px-3.5 py-1.5 rounded-xl text-xs font-black shadow-xs transition cursor-pointer flex items-center gap-1.5"
+            >
+              <Database className="w-3.5 h-3.5 text-emerald-700" />
+              <span>تحميل ومزامنة النشاط الآن ←</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setEcosystemAlert(null)}
+              className="text-white/80 hover:text-white px-2 py-1 cursor-pointer font-bold"
+              title="إغلاق التنبيه"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 

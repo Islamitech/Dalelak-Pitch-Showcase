@@ -23,6 +23,7 @@ import {
 import { createWhatsAppDirectUrl } from '../utils/assetPitchMessageBuilder';
 import { DalilakBusiness, WatermarkSettings } from '../types';
 import { generateSmartWhatsAppPitch } from '../services/pitchAiService';
+import { saveVisualAssetToEcosystem } from '../services/dalilakService';
 
 interface AssetPitchCardProps {
   assetKey: 'logo' | 'catalog' | 'social_post' | 'promo_offer';
@@ -64,6 +65,10 @@ export const AssetPitchCard: React.FC<AssetPitchCardProps> = ({
   const [copiedText, setCopiedText] = useState(false);
   const [copiedImage, setCopiedImage] = useState(false);
   const [isGeneratingAiMessage, setIsGeneratingAiMessage] = useState(false);
+
+  const firstBusinessPhoto = Array.isArray(business?.photos) && business.photos.length > 0
+    ? (typeof business.photos[0] === 'string' ? business.photos[0] : (business.photos[0] as any)?.url)
+    : '';
 
   // Update default message if business changes
   useEffect(() => {
@@ -132,7 +137,11 @@ export const AssetPitchCard: React.FC<AssetPitchCardProps> = ({
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === 'string') {
-          onUpdateImage(reader.result);
+          const imgUrl = reader.result;
+          onUpdateImage(imgUrl);
+          if (business?.id) {
+            saveVisualAssetToEcosystem(business.id, businessName, assetKey, imgUrl);
+          }
         }
       };
       reader.readAsDataURL(file);
@@ -230,6 +239,21 @@ export const AssetPitchCard: React.FC<AssetPitchCardProps> = ({
                 <ImageIcon className="w-10 h-10 mb-2 text-slate-300" />
                 <span className="text-xs font-bold text-slate-600">لا توجد صورة محددة بعد</span>
                 <span className="text-[10px] text-slate-400 mt-1">ارفع صورة من جهازك لحرق العلامة المائية عليها فوراً</span>
+                {firstBusinessPhoto && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdateImage(firstBusinessPhoto);
+                      if (business?.id) {
+                        saveVisualAssetToEcosystem(business.id, businessName, assetKey, firstBusinessPhoto);
+                      }
+                    }}
+                    className="mt-3 py-1.5 px-3 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-xl text-xs font-black flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                    <span>استخدام صورة واجهة النشاط من السيرفر</span>
+                  </button>
+                )}
               </div>
             )}
 
