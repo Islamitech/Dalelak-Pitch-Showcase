@@ -1050,26 +1050,31 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
 
       {/* 🔍 FULLSCREEN HIGH-RESOLUTION LIGHTBOX MODAL (الاطلاع الكامل على الصور مع التكبير) */}
       {selectedAssetIndex !== null && activeAsset && (
-        <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col justify-between p-4 sm:p-6 animate-in fade-in duration-200">
+        <div 
+          className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col justify-between p-3 sm:p-6 animate-in fade-in duration-200 overflow-hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedAssetIndex(null);
+          }}
+        >
           
           {/* Lightbox Top Control Bar */}
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3 z-20">
-            <div className="flex items-center gap-3">
-              <span className={`text-xs font-black px-3 py-1 rounded-full border ${activeAsset.badgeColor}`}>
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3 z-30 gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 overflow-hidden">
+              <span className={`text-[10px] sm:text-xs font-black px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full border shrink-0 ${activeAsset.badgeColor}`}>
                 {activeAsset.badge}
               </span>
-              <div>
-                <h3 className="text-white font-black text-sm sm:text-base truncate max-w-xs sm:max-w-md">
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <h3 className="text-white font-black text-xs sm:text-base truncate">
                   {activeAsset.title}
                 </h3>
-                <span className="text-xs text-slate-400">
-                  التصميم {selectedAssetIndex + 1} من {visualAssetItems.length} • نشاط «${bizName}»
+                <span className="text-[10px] sm:text-xs text-slate-400 block truncate">
+                  التصميم {selectedAssetIndex + 1} من {visualAssetItems.length} • نشاط «{bizName}»
                 </span>
               </div>
             </div>
 
             {/* Zoom & Close Controls */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <div className="hidden sm:flex items-center bg-slate-900 border border-slate-700 rounded-xl p-1 gap-1 text-slate-300">
                 <button
                   type="button"
@@ -1100,29 +1105,39 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
                 </button>
               </div>
 
+              {/* High-Visibility Top Close Button */}
               <button
                 type="button"
                 onClick={() => setSelectedAssetIndex(null)}
-                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition cursor-pointer"
-                title="إغلاق المعاينة المكبرة (Esc)"
+                className="p-2 sm:p-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white border border-red-500/60 shadow-lg transition-transform active:scale-90 cursor-pointer shrink-0 flex items-center gap-1 font-bold text-xs"
+                title="إغلاق المعاينة (Esc)"
               >
                 <X className="w-5 h-5" />
+                <span className="hidden sm:inline">إغلاق</span>
               </button>
             </div>
           </div>
 
           {/* Lightbox Center Viewport */}
-          <div className="flex-1 flex items-center justify-center relative overflow-hidden my-4">
+          <div 
+            className="flex-1 flex items-center justify-center relative overflow-hidden my-2 sm:my-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setSelectedAssetIndex(null);
+            }}
+          >
             
             {/* Previous Image Button */}
             {visualAssetItems.length > 1 && (
               <button
                 type="button"
-                onClick={handlePrevImage}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePrevImage();
+                }}
                 title="الصورة السابقة"
-                className="absolute right-2 sm:right-6 z-30 p-3 rounded-full bg-slate-900/80 hover:bg-slate-800 text-white border border-slate-700 shadow-xl transition cursor-pointer"
+                className="absolute right-2 sm:right-6 z-30 p-2.5 sm:p-3 rounded-full bg-slate-900/85 hover:bg-slate-800 text-white border border-slate-700 shadow-xl transition cursor-pointer"
               >
-                <ChevronRight className="w-6 h-6" />
+                <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             )}
 
@@ -1130,16 +1145,22 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
             {visualAssetItems.length > 1 && (
               <button
                 type="button"
-                onClick={handleNextImage}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNextImage();
+                }}
                 title="الصورة التالية"
-                className="absolute left-2 sm:left-6 z-30 p-3 rounded-full bg-slate-900/80 hover:bg-slate-800 text-white border border-slate-700 shadow-xl transition cursor-pointer"
+                className="absolute left-2 sm:left-6 z-30 p-2.5 sm:p-3 rounded-full bg-slate-900/85 hover:bg-slate-800 text-white border border-slate-700 shadow-xl transition cursor-pointer"
               >
-                <ChevronLeft className="w-6 h-6" />
+                <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             )}
 
             {/* Image Container with Zoom & Strict Watermark */}
-            <div className="relative max-w-4xl max-h-[70vh] flex items-center justify-center overflow-auto p-4">
+            <div 
+              className="relative max-w-4xl max-h-[60vh] sm:max-h-[70vh] flex items-center justify-center overflow-auto p-2 sm:p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
               <img
                 src={activeAsset.imageUrl}
                 alt={activeAsset.title}
@@ -1147,7 +1168,7 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
                   transform: `scale(${zoomLevel})`,
                   transition: 'transform 0.2s ease-out'
                 }}
-                className="max-h-[65vh] max-w-full object-contain rounded-xl shadow-2xl pointer-events-none select-none"
+                className="max-h-[55vh] sm:max-h-[65vh] max-w-full object-contain rounded-xl shadow-2xl pointer-events-none select-none"
               />
 
               {/* 1. High-Visibility Diagonal Watermark Pattern (Strong on Fullscreen Image Preview) */}
@@ -1178,28 +1199,39 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
           </div>
 
           {/* Lightbox Bottom Info & Action Bar */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 z-20">
-            <div className="space-y-1">
-              <p className="text-xs sm:text-sm text-slate-200 font-medium leading-relaxed max-w-2xl">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 z-20">
+            <div className="space-y-1 w-full md:w-auto">
+              <p className="text-xs sm:text-sm text-slate-200 font-medium leading-relaxed max-w-2xl line-clamp-2 sm:line-clamp-none">
                 {activeAsset.description}
               </p>
-              <div className="flex items-center gap-3 text-xs text-slate-400 font-bold flex-wrap">
+              <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs text-slate-400 font-bold flex-wrap">
                 <span>{activeAsset.specs}</span>
                 <span>•</span>
                 <span className="text-amber-400">يتم التسليم بالدقة الأصلية بدون علامة مائية فور التعاقد</span>
               </div>
             </div>
 
-            <a
-              href={`https://wa.me/201556221141?text=${encodeURIComponent(`السلام عليكم، أنا صاحب نشاط «${bizName}» وعاينت التصميم «${activeAsset.title}» وحابب أطلبه بالجودة الأصلية بدون علامة مائية!`)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={handleCtaClick}
-              className="w-full md:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm px-6 py-3 rounded-xl shadow-lg transition cursor-pointer shrink-0"
-            >
-              <Send className="w-4 h-4" />
-              <span>طلب استلام هذا التصميم بالدقة الأصلية</span>
-            </a>
+            <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedAssetIndex(null)}
+                className="flex-1 md:flex-none flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs sm:text-sm px-4 py-3 rounded-xl border border-slate-700 transition cursor-pointer"
+              >
+                <X className="w-4 h-4 text-red-400" />
+                <span>إغلاق العارض</span>
+              </button>
+
+              <a
+                href={`https://wa.me/201556221141?text=${encodeURIComponent(`السلام عليكم، أنا صاحب نشاط «${bizName}» وعاينت التصميم «${activeAsset.title}» وحابب أطلبه بالجودة الأصلية بدون علامة مائية!`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={handleCtaClick}
+                className="flex-2 md:flex-none inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm px-5 py-3 rounded-xl shadow-lg transition cursor-pointer"
+              >
+                <Send className="w-4 h-4" />
+                <span>طلب استلام التصميم</span>
+              </a>
+            </div>
           </div>
 
         </div>
@@ -1207,19 +1239,24 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
 
       {/* 🔒 LOCKED 30-DAY MARKETING CONTENT PLAN VIP MODAL (حجز الباقة لفتح الخطة كاملة) */}
       {showLockedCalendarModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+        <div 
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowLockedCalendarModal(false);
+          }}
+        >
           <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden text-right">
             
             {/* Modal Header */}
-            <div className="p-5 sm:p-6 border-b border-slate-200 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 flex items-center justify-between">
-              <div>
+            <div className="p-5 sm:p-6 border-b border-slate-200 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="bg-slate-950 text-amber-400 text-[10px] font-black px-2.5 py-0.5 rounded-full">
+                  <span className="bg-slate-950 text-amber-400 text-[10px] font-black px-2.5 py-0.5 rounded-full shrink-0">
                     باقة المحتوى الشهري المعتمد
                   </span>
-                  <span className="text-xs font-bold text-slate-900">30 يوماً متجددة تلقائياً</span>
+                  <span className="text-xs font-bold text-slate-900 truncate">30 يوماً متجددة تلقائياً</span>
                 </div>
-                <h3 className="text-lg sm:text-xl font-black">
+                <h3 className="text-base sm:text-xl font-black truncate">
                   نظام خطة الـ 30 يوماً لنشاط «{bizName}»
                 </h3>
               </div>
@@ -1227,7 +1264,7 @@ export const ClientTeaserPreview: React.FC<ClientTeaserPreviewProps> = ({
               <button
                 type="button"
                 onClick={() => setShowLockedCalendarModal(false)}
-                className="p-2 rounded-xl bg-slate-950/10 hover:bg-slate-950/20 text-slate-950 transition cursor-pointer"
+                className="p-2 rounded-xl bg-slate-950/10 hover:bg-slate-950/20 text-slate-950 transition cursor-pointer shrink-0"
               >
                 <X className="w-6 h-6" />
               </button>

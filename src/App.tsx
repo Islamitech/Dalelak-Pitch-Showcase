@@ -21,17 +21,50 @@ import {
 import { subscribeToTrackingUpdates } from './services/leadTrackingService';
 import { Sliders, Smartphone, Sparkles, Database, Loader2 } from 'lucide-react';
 
+// Synchronously detect client preview URL parameters BEFORE initial React render
+function getInitialClientParameters() {
+  if (typeof window === 'undefined') {
+    return { isClient: false, pitchParam: null, bizParam: null };
+  }
+  const params = new URLSearchParams(window.location.search);
+  const pitchParam = params.get('pitch') || params.get('preview') || params.get('p');
+  const bizParam = params.get('biz') || params.get('b') || params.get('id');
+  const isClient = !!(pitchParam || bizParam || params.get('view') === 'client');
+  return { isClient, pitchParam, bizParam };
+}
+
+const initialClientInfo = getInitialClientParameters();
+
 export function App() {
+  // Synchronous initialization ensures client NEVER sees admin mode, not even for 1 millisecond
+  const [mode, setMode] = useState<'admin' | 'client'>(() => (initialClientInfo.isClient ? 'client' : 'admin'));
+  const [isClientStandalone, setIsClientStandalone] = useState<boolean>(() => initialClientInfo.isClient);
+
   const [currentPitch, setCurrentPitch] = useState<PitchPackage>(() => {
     const saved = getSavedPitchPackages();
-    if (saved.length > 0) return saved[0];
+    if (initialClientInfo.isClient) {
+      const matched = saved.find(p => 
+        (initialClientInfo.pitchParam && p.id === initialClientInfo.pitchParam) || 
+        (initialClientInfo.bizParam && p.businessId === initialClientInfo.bizParam)
+      );
+      if (matched) return matched;
+    } else if (saved.length > 0) {
+      return saved[0];
+    }
     const demoBiz = getDemoBusinesses()[0];
     return createDefaultPitchPackage(demoBiz);
   });
 
-  const [mode, setMode] = useState<'admin' | 'client'>('admin');
-  const [isClientStandalone, setIsClientStandalone] = useState(false);
-  const [isLoadingRemotePitch, setIsLoadingRemotePitch] = useState(false);
+  const [isLoadingRemotePitch, setIsLoadingRemotePitch] = useState<boolean>(() => {
+    if (!initialClientInfo.isClient) return false;
+    const saved = getSavedPitchPackages();
+    const matched = saved.find(p => 
+      (initialClientInfo.pitchParam && p.id === initialClientInfo.pitchParam) || 
+      (initialClientInfo.bizParam && p.businessId === initialClientInfo.bizParam)
+    );
+    return !matched;
+  });
+
   const [isCoreLive, setIsCoreLive] = useState(false);
   const [ecosystemAlert, setEcosystemAlert] = useState<{
     business: DalilakBusiness;
@@ -63,18 +96,15 @@ export function App() {
 
   // 1. Check URL parameters for direct client pitch link & Auto-Detect latest ecosystem activity
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const pitchParam = params.get('pitch') || params.get('preview') || params.get('p');
-    const bizParam = params.get('biz') || params.get('b') || params.get('id');
+    const { isClient, pitchParam, bizParam } = initialClientInfo;
 
-    if (pitchParam || bizParam) {
-      setMode('client');
-      setIsClientStandalone(true);
+    if (isClient) {
       const saved = getSavedPitchPackages();
       const matched = saved.find(p => (pitchParam && p.id === pitchParam) || (bizParam && p.businessId === bizParam));
       
       if (matched) {
         setCurrentPitch(matched);
+        setIsLoadingRemotePitch(false);
       } else {
         // Fetch and reconstruct from Ecosystem Supabase across devices (phones/desktops anywhere)
         setIsLoadingRemotePitch(true);
