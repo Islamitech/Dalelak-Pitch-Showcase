@@ -89,6 +89,8 @@ export interface PitchPackage {
   visualAssets: {
     logoType: 'vector' | 'signboard' | 'hybrid';
     logoDataUrl?: string;
+    catalogDataUrl?: string;
+    promoOfferDataUrl?: string;
     signboardPhotoUrl?: string;
     socialMockupPosts: SocialMockupItem[];
     contentPlanSnippet: ContentPlanItem[];

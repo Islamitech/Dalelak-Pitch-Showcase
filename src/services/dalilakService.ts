@@ -183,6 +183,136 @@ export function createDefaultPitchPackage(business: DalilakBusiness): PitchPacka
     blurOnWindowBlur: false
   };
 
+  const defaultDeliverables = [
+    {
+      id: 'del_1',
+      title: 'توثيق وتصدر خرائط Google الرسمي',
+      description: 'إثبات ملكية موثق وتثبيت الموقع الجغرافي الدقيق وربط تقييمات العملاء المباشرة 5 نجوم لرفع ترتيبك في محركات البحث.',
+      iconName: 'MapPin',
+      isLockedHighRes: false,
+      badge: 'توثيق رسمي ⭐️'
+    },
+    {
+      id: 'del_2',
+      title: 'ستاند طاولة أكريليك كريستالي ذكي (VIP)',
+      description: 'ستاند طاولة أنيق وفاخر مطبوع عليه كود QR دليلك الذكي وشعار نشاطك لتقييم الزبائن بلمسة واحدة من هواتفهم.',
+      iconName: 'QrCode',
+      isLockedHighRes: true,
+      badge: 'مجسم مجاني 💎'
+    },
+    {
+      id: 'del_3',
+      title: 'شعار رقمي احترافي فكتور عالي الدقة',
+      description: 'تحويل لافتة الشارع الحالية إلى شعار فيكتور نقي قابل للطباعة على الكروت والشنط والواجهات بجميع المقاسات.',
+      iconName: 'Sparkles',
+      isLockedHighRes: true,
+      badge: 'أصل معتمد 🎨'
+    },
+    {
+      id: 'del_4',
+      title: 'قوالب براويز سوشيال ميديا موحدة لمنتجاتك',
+      description: 'تصميم إطارات وبراويز جاهزة؛ تضع صورة موبايل لأي منتج أو طبق داخل الإطار لتظهر كأنها إعلان عالمي في ثوانٍ.',
+      iconName: 'LayoutTemplate',
+      isLockedHighRes: true,
+      badge: 'قوالب جاهزة 📱'
+    },
+    {
+      id: 'del_5',
+      title: 'خطة محتوى تسويقية لمدة 30 يوماً متكاملة',
+      description: 'جدول منشورات مكتوبة خصيصاً بلهجة الشارع المصري لجذب الزبائن، وعروض المواسم، وتثبيت الولاء.',
+      iconName: 'CalendarCheck',
+      isLockedHighRes: false,
+      badge: 'خطة شهر كامل 🗓️'
+    }
+  ];
+
+  const defaultPosts = [
+    {
+      id: 'post_1',
+      headline: `أعلى جودة في ${business.city || 'المنطقة'}.. التجربة خير برهان! ✨`,
+      caption: `في ${name} مش بنقدملك مجرد خدمة.. بنقدملك راحة بال وطعم حقيقي مبينساش. زورنا اليوم وشوف الفرق بنفسك!`,
+      accent: 'amber' as const,
+      tag: 'جودة استثنائية'
+    },
+    {
+      id: 'post_2',
+      headline: `عرض خاص لأول 50 زائر بخصم حصري 🔥`,
+      caption: `علشان عملائنا يستاهلوا الأفضل.. كل أسبوع عندنا مفاجأة مستنياك. اسأل في فرعنا عن كود عرض الأسبوع!`,
+      accent: 'emerald' as const,
+      tag: 'عروض حصرية'
+    },
+    {
+      id: 'post_3',
+      headline: `تقييمات عملائنا هي سر ثقتنا ورقم 1 في منطقتنا ⭐️⭐️⭐️⭐️⭐️`,
+      caption: `شكراً لكل عميل شرفنا برأيه الجميل.. دعمكم وكلامكم هو الدافع الأول لينا عشان نطور كل يوم ونفضل عند حسن ظنكم.`,
+      accent: 'blue' as const,
+      tag: 'آراء الزبائن'
+    }
+  ];
+
+  const defaultSnippet = [
+    {
+      day: 1,
+      pillar: 'افتتاحية وتثبيت الهوية',
+      title: 'قصة انطلاقنا وسر الجودة',
+      hook: 'ليه لما بتجرب خدماتنا بترجع لنا تاني؟ التفاصيل هي الفرق!',
+      callToAction: 'زورونا في موقعنا أو راسلونا واتساب'
+    },
+    {
+      day: 4,
+      pillar: 'عروض تفاعلية',
+      title: 'مسابقة نهاية الأسبوع لرواد المكان',
+      hook: 'مين أكتر شخص يستاهل تعزمه اليوم على حسابك عندنا؟',
+      callToAction: 'تاغ لصاحبك في التعليقات وادخل السحب'
+    },
+    {
+      day: 8,
+      pillar: 'كواليس وتوثيق الجودة',
+      title: 'ازاي بنختار مكوناتنا ونجهز طلبك بدقة؟',
+      hook: 'أسرار ما وراء الكواليس اللي بتخلينا مميزين دائماً.',
+      callToAction: 'شاهد الفيديو وشاركنا رأيك'
+    },
+    {
+      day: 14,
+      pillar: 'دليل الزبائن وGoogle Maps',
+      title: 'خطوة واحدة تضمن بيها أفضل تجربة',
+      hook: 'امسح كود تقييم دليلك على طاولة فرعنا واحصل على هدية فورية.',
+      callToAction: 'اكتب تقييمك بـ 5 نجوم وورينا الشاشة'
+    }
+  ];
+
+  // Auto-detect server marketing progress if available
+  let customSnippet = defaultSnippet;
+  let customPosts = defaultPosts;
+
+  try {
+    const mktKey = `dalelak_marketing_progress_${business.id}`;
+    const rawMkt = localStorage.getItem(mktKey);
+    if (rawMkt) {
+      const mkt = JSON.parse(rawMkt);
+      if (mkt.calendar && Array.isArray(mkt.calendar) && mkt.calendar.length > 0) {
+        customSnippet = mkt.calendar.slice(0, 6).map((c: any) => ({
+          day: c.day,
+          pillar: c.pillarTitle || c.pillar,
+          title: c.headline || c.title,
+          hook: c.hookText || c.hook,
+          callToAction: c.callToAction
+        }));
+      }
+      if (mkt.readyPosts && Array.isArray(mkt.readyPosts) && mkt.readyPosts.length > 0) {
+        customPosts = mkt.readyPosts.map((p: any, i: number) => ({
+          id: p.id || `post_${i}`,
+          headline: p.title || p.headline,
+          caption: p.content || p.caption,
+          accent: i === 0 ? 'amber' : i === 1 ? 'emerald' : 'blue',
+          tag: p.badge || p.platform || 'إعلان ترويجي'
+        }));
+      }
+    }
+  } catch (e) {
+    // Ignore
+  }
+
   return {
     id: `pitch_${Date.now()}`,
     businessId: business.id,
@@ -197,104 +327,13 @@ export function createDefaultPitchPackage(business: DalilakBusiness): PitchPacka
     currency: 'جنيه مصري',
     discountExpiresHours: 48,
     guaranteeText: 'ضمان استرجاع كامل للاستثمار خلال 14 يوماً في حال عدم الرضا عن جودة التنفيذ والتوثيق الميداني.',
-    deliverables: [
-      {
-        id: 'del_1',
-        title: 'توثيق وتصدر خرائط Google الرسمي',
-        description: 'إثبات ملكية موثق وتثبيت الموقع الجغرافي الدقيق وربط تقييمات العملاء المباشرة 5 نجوم لرفع ترتيبك في محركات البحث.',
-        iconName: 'MapPin',
-        isLockedHighRes: false,
-        badge: 'توثيق رسمي ⭐️'
-      },
-      {
-        id: 'del_2',
-        title: 'ستاند طاولة أكريليك كريستالي ذكي (VIP)',
-        description: 'ستاند طاولة أنيق وفاخر مطبوع عليه كود QR دليلك الذكي وشعار نشاطك لتقييم الزبائن بلمسة واحدة من هواتفهم.',
-        iconName: 'QrCode',
-        isLockedHighRes: true,
-        badge: 'مجسم مجاني 💎'
-      },
-      {
-        id: 'del_3',
-        title: 'شعار رقمي احترافي فكتور عالي الدقة',
-        description: 'تحويل لافتة الشارع الحالية إلى شعار فيكتور نقي قابل للطباعة على الكروت والشنط والواجهات بجميع المقاسات.',
-        iconName: 'Sparkles',
-        isLockedHighRes: true,
-        badge: 'أصل معتمد 🎨'
-      },
-      {
-        id: 'del_4',
-        title: 'قوالب براويز سوشيال ميديا موحدة لمنتجاتك',
-        description: 'تصميم إطارات وبراويز جاهزة؛ تضع صورة موبايل لأي منتج أو طبق داخل الإطار لتظهر كأنها إعلان عالمي في ثوانٍ.',
-        iconName: 'LayoutTemplate',
-        isLockedHighRes: true,
-        badge: 'قوالب جاهزة 📱'
-      },
-      {
-        id: 'del_5',
-        title: 'خطة محتوى تسويقية لمدة 30 يوماً متكاملة',
-        description: 'جدول منشورات مكتوبة خصيصاً بلهجة الشارع المصري لجذب الزبائن، وعروض المواسم، وتثبيت الولاء.',
-        iconName: 'CalendarCheck',
-        isLockedHighRes: false,
-        badge: 'خطة شهر كامل 🗓️'
-      }
-    ],
+    deliverables: defaultDeliverables,
     visualAssets: {
       logoType: 'vector',
+      logoDataUrl: signboardUrl || undefined,
       signboardPhotoUrl: signboardUrl,
-      socialMockupPosts: [
-        {
-          id: 'post_1',
-          headline: `أعلى جودة في ${business.city || 'المنطقة'}.. التجربة خير برهان! ✨`,
-          caption: `في ${name} مش بنقدملك مجرد خدمة.. بنقدملك راحة بال وطعم حقيقي مبينساش. زورنا اليوم وشوف الفرق بنفسك!`,
-          accent: 'amber',
-          tag: 'جودة استثنائية'
-        },
-        {
-          id: 'post_2',
-          headline: `عرض خاص لأول 50 زائر بخصم حصري 🔥`,
-          caption: `علشان عملائنا يستاهلوا الأفضل.. كل أسبوع عندنا مفاجأة مستنياك. اسأل في فرعنا عن كود عرض الأسبوع!`,
-          accent: 'emerald',
-          tag: 'عروض حصرية'
-        },
-        {
-          id: 'post_3',
-          headline: `تقييمات عملائنا هي سر ثقتنا ورقم 1 في منطقتنا ⭐️⭐️⭐️⭐️⭐️`,
-          caption: `شكراً لكل عميل شرفنا برأيه الجميل.. دعمكم وكلامكم هو الدافع الأول لينا عشان نطور كل يوم ونفضل عند حسن ظنكم.`,
-          accent: 'blue',
-          tag: 'آراء الزبائن'
-        }
-      ],
-      contentPlanSnippet: [
-        {
-          day: 1,
-          pillar: 'افتتاحية وتثبيت الهوية',
-          title: 'قصة انطلاقنا وسر الجودة',
-          hook: 'ليه لما بتجرب خدماتنا بترجع لنا تاني؟ التفاصيل هي الفرق!',
-          callToAction: 'زورونا في موقعنا أو راسلونا واتساب'
-        },
-        {
-          day: 4,
-          pillar: 'عروض تفاعلية',
-          title: 'مسابقة نهاية الأسبوع لرواد المكان',
-          hook: 'مين أكتر شخص يستاهل تعزمه اليوم على حسابك عندنا؟',
-          callToAction: 'تاغ لصاحبك في التعليقات وادخل السحب'
-        },
-        {
-          day: 8,
-          pillar: 'كواليس وتوثيق الجودة',
-          title: 'ازاي بنختار مكوناتنا ونجهز طلبك بدقة؟',
-          hook: 'أسرار ما وراء الكواليس اللي بتخلينا مميزين دائماً.',
-          callToAction: 'شاهد الفيديو وشاركنا رأيك'
-        },
-        {
-          day: 14,
-          pillar: 'دليل الزبائن وGoogle Maps',
-          title: 'خطوة واحدة تضمن بيها أفضل تجربة',
-          hook: 'امسح كود تقييم دليلك على طاولة فرعنا واحصل على هدية فورية.',
-          callToAction: 'اكتب تقييمك بـ 5 نجوم وورينا الشاشة'
-        }
-      ],
+      socialMockupPosts: customPosts,
+      contentPlanSnippet: customSnippet,
       acrylicStand: {
         material: 'gold',
         qrTargetUrl: googleInfo.verifiedUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`,
