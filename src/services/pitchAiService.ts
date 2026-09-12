@@ -2,15 +2,15 @@ import { GoogleGenAI } from '@google/genai';
 import { DalilakBusiness } from '../types';
 import { getBackupGeminiKey, getGeminiKey } from './dalilakService';
 
-export const PRIMARY_PITCH_MODEL = 'gemini-3.6-flash';
-export const FALLBACK_PITCH_MODELS = ['gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
+export const PRIMARY_PITCH_MODEL = 'gemini-3.5-flash';
+export const FALLBACK_PITCH_MODELS = ['gemini-3.5-flash', 'gemini-flash-latest', 'gemini-3.6-flash', 'gemini-flash-lite-latest'];
 
 /**
  * Call Gemini REST endpoint with candidate models
  */
 async function callGeminiRest(apiKey: string, model: string, prompt: string): Promise<string | null> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12000);
+  const timer = setTimeout(() => controller.abort(), 30000);
 
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -21,6 +21,7 @@ async function callGeminiRest(apiKey: string, model: string, prompt: string): Pr
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.7,
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
       signal: controller.signal,
