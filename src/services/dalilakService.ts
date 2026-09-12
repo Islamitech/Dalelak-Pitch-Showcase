@@ -6,7 +6,7 @@ const DEFAULT_CORE_KEY = 'sb_publishable_VJ8y1c53by7_sEn90hy8Pw_vO_K_b2x';
 
 // Default Supabase configuration for Ecosystem Staging Server (Helper Apps Output)
 export const DEFAULT_ECOSYSTEM_URL = 'https://hzlbbzxccqfdeyumtxph.supabase.co';
-export const DEFAULT_ECOSYSTEM_KEY = '';
+export const DEFAULT_ECOSYSTEM_KEY = 'sb_publishable_wCaOboe9oyYsBZ4utP89jA_rAwHIbc9';
 
 const STORAGE_KEY_CORE_URL = 'dalelak_core_url';
 const STORAGE_KEY_CORE_KEY = 'dalelak_core_key';
