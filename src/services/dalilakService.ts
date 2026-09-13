@@ -26,10 +26,25 @@ const ENCODED_DEFAULT_KEY = 'QVEuQWI4Uk42SVRIQ29lUmtHejdRVDRnQm1FSHZLU2ZMQ1VLa3p
 const ENCODED_BACKUP_KEY = 'QVEuQWI4Uk42S3Z5ekI4TkN2dkl0UWpMSEt5TFUxcnZtV2I5TmhPR29laXpRMW95QXB2QWc=';
 export const DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob(ENCODED_DEFAULT_KEY) : '';
 
+export function getGeminiKey(): string {
+  const custom = localStorage.getItem(STORAGE_GEMINI_KEY) || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+  if (custom && custom.trim().length > 20) return custom.trim();
+  return DEFAULT_GEMINI_KEY;
+}
+
+export function getBackupGeminiKey(): string {
+  return typeof atob === 'function' ? atob(ENCODED_BACKUP_KEY) : '';
+}
+
+export function isGeminiConfigured(): boolean {
+  const key = getGeminiKey();
+  return typeof key === 'string' && key.trim().length > 20;
+}
+
 export function getAvailableGeminiKeys(): string[] {
   const custom = localStorage.getItem(STORAGE_GEMINI_KEY) || (import.meta as any).env?.VITE_GEMINI_API_KEY;
   const primary = DEFAULT_GEMINI_KEY;
-  const backup = typeof atob === 'function' ? atob(ENCODED_BACKUP_KEY) : '';
+  const backup = getBackupGeminiKey();
   const list = [custom, primary, backup].filter((k): k is string => typeof k === 'string' && k.trim().length > 20);
   return Array.from(new Set(list));
 }
@@ -47,6 +62,20 @@ export function getCoreConfig() {
 export function saveCoreConfig(url: string, key: string) {
   if (url) localStorage.setItem(STORAGE_KEY_CORE_URL, url.trim());
   if (key) localStorage.setItem(STORAGE_KEY_CORE_KEY, key.trim());
+}
+
+const STORAGE_KEY_ECOSYSTEM_URL = 'dalilak_ecosystem_url';
+const STORAGE_KEY_ECOSYSTEM_KEY = 'dalilak_ecosystem_key';
+
+export function getEcosystemConfig() {
+  const url = localStorage.getItem(STORAGE_KEY_ECOSYSTEM_URL) || (import.meta as any).env?.VITE_ECOSYSTEM_SUPABASE_URL || DEFAULT_ECOSYSTEM_URL;
+  const key = localStorage.getItem(STORAGE_KEY_ECOSYSTEM_KEY) || (import.meta as any).env?.VITE_ECOSYSTEM_SUPABASE_ANON_KEY || DEFAULT_ECOSYSTEM_KEY;
+  return { url: url.trim().replace(/\/+$/, ''), key: key.trim() };
+}
+
+export function saveEcosystemConfig(url: string, key: string) {
+  if (url) localStorage.setItem(STORAGE_KEY_ECOSYSTEM_URL, url.trim());
+  if (key) localStorage.setItem(STORAGE_KEY_ECOSYSTEM_KEY, key.trim());
 }
 
 export function isVerifiedGoogleMapsLink(url: string | null | undefined): boolean {
@@ -725,4 +754,243 @@ export async function fetchRecentEcosystemActivities(limit = 30): Promise<any[]>
 
   return list;
 }
+
+/**
+ * Saves or updates visual asset in Ecosystem Supabase Server (visual_assets table)
+ */
+export async function saveVisualAssetToEcosystem(
+  businessId: string,
+  businessName: string,
+  assetKey: 'logo' | 'catalog' | 'social_post' | 'promo_offer',
+  imageUrl: string
+): Promise<boolean> {
+  // 1. Local caching
+  try {
+    const localKey = `dalilak_visual_asset_${businessId}_${assetKey}`;
+    localStorage.setItem(localKey, imageUrl);
+  } catch (e) {}
+
+  // 2. Persist to Ecosystem Supabase Server
+  const { url, key } = getEcosystemConfig();
+  if (!url || !key) return false;
+  try {
+    const payload: Record<string, any> = {
+      business_id: businessId,
+      business_name: businessName,
+      updated_at: new Date().toISOString()
+    };
+    if (assetKey === 'logo') {
+      payload.logo_data_url = imageUrl;
+    } else if (assetKey === 'catalog') {
+      payload.catalog_image_url = imageUrl;
+    } else if (assetKey === 'promo_offer') {
+      payload.promo_offer_image_url = imageUrl;
+    } else if (assetKey === 'social_post') {
+      payload.social_frames = [{ imageUrl, timestamp: new Date().toISOString() }];
+    }
+
+    const endpoint = `${url}/rest/v1/visual_assets`;
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'apikey': key,
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify(payload)
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('Failed saving visual asset to ecosystem:', err);
+    return false;
+  }
+}
+
+/**
+ * Fetches real marketing plan and ready posts from Ecosystem Supabase Server
+ */
+export async function fetchEcosystemMarketingActivity(businessId: string): Promise<any | null> {
+  const { url, key } = getEcosystemConfig();
+  if (!url || !key) return null;
+  try {
+    const endpoint = `${url}/rest/v1/marketing_activities?business_id=eq.${encodeURIComponent(businessId)}`;
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'apikey': key,
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data[0];
+      }
+    }
+  } catch (err) {
+    // Ignore network error
+  }
+  return null;
+}
+
+/**
+ * Fetches real visual assets (logos, frames, catalog, promo) from Ecosystem Supabase Server
+ */
+export async function fetchEcosystemVisualAssets(businessId: string): Promise<any | null> {
+  const { url, key } = getEcosystemConfig();
+  if (!url || !key) return null;
+  try {
+    const endpoint = `${url}/rest/v1/visual_assets?business_id=eq.${encodeURIComponent(businessId)}`;
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'apikey': key,
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data[0];
+      }
+    }
+  } catch (err) {
+    console.warn('Network error fetching visual assets:', err);
+  }
+  return null;
+}
+
+/**
+ * Enriches pitch package with all outputs from Phase 1 (Marketing) and Phase 2 (Visual)
+ */
+export async function enrichPitchPackageWithEcosystemData(pitch: PitchPackage): Promise<{
+  enrichedPitch: PitchPackage;
+  marketingFound: boolean;
+  visualFound: boolean;
+}> {
+  let marketingFound = false;
+  let visualFound = false;
+  const updatedVisualAssets = { ...pitch.visualAssets };
+  let updatedMarketingData = pitch.marketingData || {};
+
+  const firstBusinessPhoto = Array.isArray(pitch.business.photos) && pitch.business.photos.length > 0
+    ? (typeof pitch.business.photos[0] === 'string' ? pitch.business.photos[0] : (pitch.business.photos[0] as any)?.url)
+    : '';
+
+  try {
+    // 1. Fetch visual assets from Ecosystem
+    const visualData = await fetchEcosystemVisualAssets(pitch.businessId);
+    if (visualData) {
+      visualFound = true;
+      if (visualData.logo_data_url || visualData.logo_vector_svg) {
+        updatedVisualAssets.logoDataUrl = visualData.logo_data_url || visualData.logo_vector_svg;
+      }
+      if (visualData.signboard_photo_url) {
+        updatedVisualAssets.signboardPhotoUrl = visualData.signboard_photo_url;
+      }
+      if (visualData.catalog_image_url) {
+        updatedVisualAssets.catalogDataUrl = visualData.catalog_image_url;
+      }
+      if (visualData.promo_offer_image_url) {
+        updatedVisualAssets.promoOfferDataUrl = visualData.promo_offer_image_url;
+      }
+      if (Array.isArray(visualData.social_frames) && visualData.social_frames.length > 0) {
+        const frameImg = visualData.social_frames[0]?.imageUrl || visualData.social_frames[0];
+        if (frameImg && updatedVisualAssets.socialMockupPosts && updatedVisualAssets.socialMockupPosts.length > 0) {
+          updatedVisualAssets.socialMockupPosts[0] = {
+            ...updatedVisualAssets.socialMockupPosts[0],
+            imageUrl: typeof frameImg === 'string' ? frameImg : frameImg.url
+          };
+        }
+      }
+      if (visualData.acrylic_stand && typeof visualData.acrylic_stand === 'object') {
+        updatedVisualAssets.acrylicStand = {
+          ...updatedVisualAssets.acrylicStand,
+          ...visualData.acrylic_stand
+        };
+      }
+    }
+
+    // Check local storage for any previously uploaded visual assets
+    const localLogo = localStorage.getItem(`dalilak_visual_asset_${pitch.businessId}_logo`);
+    if (localLogo && !updatedVisualAssets.logoDataUrl) updatedVisualAssets.logoDataUrl = localLogo;
+
+    const localCatalog = localStorage.getItem(`dalilak_visual_asset_${pitch.businessId}_catalog`);
+    if (localCatalog && !updatedVisualAssets.catalogDataUrl) updatedVisualAssets.catalogDataUrl = localCatalog;
+
+    const localSocial = localStorage.getItem(`dalilak_visual_asset_${pitch.businessId}_social_post`);
+    if (localSocial && updatedVisualAssets.socialMockupPosts && updatedVisualAssets.socialMockupPosts.length > 0) {
+      if (!updatedVisualAssets.socialMockupPosts[0].imageUrl) {
+        updatedVisualAssets.socialMockupPosts[0].imageUrl = localSocial;
+      }
+    }
+
+    const localPromo = localStorage.getItem(`dalilak_visual_asset_${pitch.businessId}_promo_offer`);
+    if (localPromo && !updatedVisualAssets.promoOfferDataUrl) updatedVisualAssets.promoOfferDataUrl = localPromo;
+
+    // Ground-truth fallback if visual studio is paused and no logo yet
+    if (!updatedVisualAssets.logoDataUrl && firstBusinessPhoto) {
+      updatedVisualAssets.signboardPhotoUrl = firstBusinessPhoto;
+    }
+
+    // 2. Fetch marketing activities from Ecosystem (Phase 1)
+    const mktData = await fetchEcosystemMarketingActivity(pitch.businessId);
+    if (mktData) {
+      marketingFound = true;
+
+      // Extract calendar (first 6 for snippet teaser)
+      if (Array.isArray(mktData.calendar) && mktData.calendar.length > 0) {
+        updatedVisualAssets.contentPlanSnippet = mktData.calendar.slice(0, 6).map((c: any) => ({
+          day: c.day,
+          pillar: c.pillarTitle || c.pillar,
+          title: c.headline || c.title,
+          hook: c.hookText || c.hook,
+          callToAction: c.callToAction
+        }));
+      }
+
+      // Extract ready posts
+      if (Array.isArray(mktData.ready_posts) && mktData.ready_posts.length > 0) {
+        updatedVisualAssets.socialMockupPosts = mktData.ready_posts.map((p: any, i: number) => ({
+          id: p.id || `post_${i}`,
+          headline: p.title || p.headline,
+          caption: p.content || p.caption,
+          accent: i === 0 ? 'amber' : i === 1 ? 'emerald' : 'blue',
+          tag: p.badge || p.platform || 'إعلان ترويجي',
+          imageUrl: updatedVisualAssets.socialMockupPosts[i]?.imageUrl || (i === 0 ? firstBusinessPhoto : undefined)
+        }));
+      }
+
+      // Ingest complete marketing data
+      updatedMarketingData = {
+        persona: mktData.persona || {},
+        calendar: mktData.calendar || [],
+        readyPosts: mktData.ready_posts || [],
+        whatsappCampaigns: mktData.whatsapp_campaigns || []
+      };
+    }
+  } catch (err) {
+    console.warn('Error enriching pitch package:', err);
+  }
+
+  // If brand persona has slogan, adopt it in the headline
+  let headline = pitch.headline;
+  if (updatedMarketingData.persona?.slogan) {
+    headline = `«${pitch.business.name_ar || pitch.business.name_en}» — ${updatedMarketingData.persona.slogan}`;
+  }
+
+  const enrichedPitch: PitchPackage = {
+    ...pitch,
+    headline,
+    visualAssets: updatedVisualAssets,
+    marketingData: updatedMarketingData,
+    updatedAt: new Date().toISOString()
+  };
+
+  return { enrichedPitch, marketingFound, visualFound };
+}
+
 
