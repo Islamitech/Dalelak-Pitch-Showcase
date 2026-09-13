@@ -24,11 +24,102 @@ export interface DalilakBusiness {
   created_at?: string;
 }
 
+export type MarketingTone = 
+  | 'friendly_baladi'     // أسلوب ودي بلدي (عشم وجدعنة وترحاب مصري أصيل)
+  | 'luxury_prestigious'  // أسلوب راقٍ وفخم (VIP ووجاهة وأناقة)
+  | 'urgent_enthusiastic' // أسلوب عروض ناري وحماسي (قنبلة التوفير والحق قبل النفاذ)
+  | 'witty_smart'         // أسلوب ذكي وفرفوش (خفة دم وتفاعل شبابي ترند)
+  | 'professional_direct';// أسلوب احترافي ومباشر (ثقة وأرقام وضمان وجودة)
+
+export type ContentPillarType = 
+  | 'engagement'    // المحتوى التفاعلي والتوعوي والمسابقات
+  | 'showcase'      // استعراض جودة المنتجات والخدمات وكواليس العمل
+  | 'offers'        // عروض وتخفيضات وباقات قوية مع CTA حاسم
+  | 'social_proof'; // آراء العملاء، التقييمات، وقصص النجاح وبناء الثقة
+
+export interface MarketingPersona {
+  businessName: string;
+  category: string;
+  slogan: string;
+  brandVoice: string;
+  toneOfVoice: MarketingTone;
+  targetAudience: {
+    demographics: string;
+    painPoints: string[];
+    desires: string[];
+  };
+  uniqueSellingProposition: string;
+  recommendedPostingSchedule: string;
+  suggestedColors: {
+    primary: string;
+    secondary: string;
+    accent: string;
+  };
+}
+
+export interface ContentCalendarDay {
+  day: number;
+  pillar: ContentPillarType;
+  pillarTitle: string;
+  headline: string;
+  hookText: string;
+  bodyText: string;
+  callToAction: string;
+  visualDirection: string;
+  hashtags: string[];
+  bestTimeToPost: string;
+  isCompleted?: boolean;
+}
+
+export interface ReadySocialPost {
+  id: string;
+  platform: 'facebook' | 'instagram' | 'tiktok' | 'threads' | 'promo' | 'general' | string;
+  title: string;
+  badge: string;
+  content: string;
+  hashtags: string[];
+  imageIdea: string;
+  accent?: string;
+}
+
+export interface WhatsAppCampaign {
+  id: string;
+  title: string;
+  categoryTag: string;
+  targetAudience: string;
+  messageText: string;
+  intendedGoal: string;
+}
+
+export interface EcosystemActivityProgress {
+  businessId: string;
+  businessName: string;
+  lastUpdated: string;
+  persona: MarketingPersona | null;
+  calendar: ContentCalendarDay[];
+  readyPosts: ReadySocialPost[];
+  whatsappCampaigns: WhatsAppCampaign[];
+  isPromotedToCore: boolean;
+  promotedAt?: string;
+  notes?: string;
+  source?: 'gemini-ai' | 'smart-egyptian-engine';
+  errorDetails?: string;
+  modelUsed?: string;
+}
+
+export interface ServerConfig {
+  coreUrl: string;
+  coreKey: string;
+  ecosystemUrl: string;
+  ecosystemKey: string;
+  geminiKey: string;
+}
+
 export interface WatermarkSettings {
   enabled: boolean;
   text: string;
   secondaryText: string;
-  opacity: number; // 0.1 to 0.85
+  opacity: number; // 0.05 to 0.45
   angle: number; // -45 to 45
   fontSize: number;
   density: 'sparse' | 'medium' | 'dense';
@@ -71,6 +162,25 @@ export interface AcrylicStandConfig {
   subtext: string;
 }
 
+export interface LinkSectionVisibility {
+  acrylicStand: boolean;
+  logoTransformation: boolean;
+  socialFrames: boolean;
+  contentPlan: boolean;
+  pricingDeal: boolean;
+  countdownTimer: boolean;
+  whatsappCta: boolean;
+  growthMetrics: boolean;
+}
+
+export interface LinkSettings {
+  viewMode: 'full' | 'images_only' | 'stand_only';
+  customSlug?: string;
+  expiresHours: number;
+  pinCode?: string;
+  sectionsVisible: LinkSectionVisibility;
+}
+
 export interface PitchPackage {
   id: string;
   businessId: string;
@@ -97,40 +207,18 @@ export interface PitchPackage {
     acrylicStand: AcrylicStandConfig;
   };
   marketingData?: {
-    persona?: any;
-    calendar?: any[];
-    readyPosts?: any[];
-    whatsappCampaigns?: WhatsAppCampaignItem[];
+    persona?: MarketingPersona | null;
+    calendar?: ContentCalendarDay[];
+    readyPosts?: ReadySocialPost[];
+    whatsappCampaigns?: WhatsAppCampaign[];
+    isSyncedFromPhase1?: boolean;
+    syncedAt?: string;
   };
+  linkSettings: LinkSettings;
   watermarkSettings: WatermarkSettings;
   status: 'draft' | 'ready' | 'viewed' | 'negotiating' | 'promoted';
   createdAt: string;
   updatedAt: string;
-}
-
-export interface WhatsAppCampaignItem {
-  id?: string;
-  type?: string;
-  title: string;
-  goal?: string;
-  audience?: string;
-  messageText: string;
-}
-
-export interface EcosystemActivitySummary {
-  business_id: string;
-  business_name: string;
-  category?: string;
-  city?: string;
-  phone?: string;
-  persona?: any;
-  calendar?: any[];
-  ready_posts?: any[];
-  whatsapp_campaigns?: any[];
-  is_promoted_to_core?: boolean;
-  updated_at?: string;
-  hasMarketing: boolean;
-  hasVisual: boolean;
 }
 
 export interface SectionViewStat {

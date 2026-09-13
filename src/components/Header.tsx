@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   Sparkles, 
   Store, 
@@ -10,30 +10,24 @@ import {
   Database, 
   Activity,
   Smartphone,
-  Settings,
-  X,
-  Link,
-  Check
+  Link as LinkIcon,
+  Image as ImageIcon,
+  RefreshCw
 } from 'lucide-react';
 import { PitchPackage, TrackingSession } from '../types';
-import { 
-  getCoreConfig, 
-  saveCoreConfig, 
-  getEcosystemConfig, 
-  saveEcosystemConfig,
-  getGeminiKey,
-  saveGeminiKey,
-  getShareablePreviewUrl
-} from '../services/dalilakService';
 
 interface HeaderProps {
   currentPitch: PitchPackage;
-  currentMode: 'admin' | 'client';
-  onModeChange: (mode: 'admin' | 'client') => void;
+  currentMode: 'admin' | 'client' | 'images_only';
+  onModeChange: (mode: 'admin' | 'client' | 'images_only') => void;
   onOpenActivitiesModal: () => void;
   onOpenWhatsAppModal: () => void;
   onOpenPromoteModal: () => void;
   onOpenWatermarkSettings: () => void;
+  onOpenAdvancedLinkSettings: () => void;
+  onOpenPostGenerator: () => void;
+  onSyncPhase1: () => void;
+  isSyncingPhase1?: boolean;
   liveSessions: TrackingSession[];
   isCoreLive: boolean;
 }
@@ -46,32 +40,16 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenWhatsAppModal,
   onOpenPromoteModal,
   onOpenWatermarkSettings,
+  onOpenAdvancedLinkSettings,
+  onOpenPostGenerator,
+  onSyncPhase1,
+  isSyncingPhase1 = false,
   liveSessions,
   isCoreLive
 }) => {
   const activeNowCount = liveSessions.filter(s => s.isLiveNow).length;
   const bizName = currentPitch.business.name_ar || currentPitch.business.name_en || 'النشاط التجاري';
-
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [coreUrl, setCoreUrl] = useState(() => getCoreConfig().url);
-  const [coreKey, setCoreKey] = useState(() => getCoreConfig().key);
-  const [ecosystemUrl, setEcosystemUrl] = useState(() => getEcosystemConfig().url);
-  const [ecosystemKey, setEcosystemKey] = useState(() => getEcosystemConfig().key);
-  const [geminiKey, setGeminiKey] = useState(() => getGeminiKey());
-  const [savedSuccess, setSavedSuccess] = useState(false);
-  const [copiedPreviewLink, setCopiedPreviewLink] = useState(false);
-
-  const handleSaveSettings = (e: React.FormEvent) => {
-    e.preventDefault();
-    saveCoreConfig(coreUrl, coreKey);
-    saveEcosystemConfig(ecosystemUrl, ecosystemKey);
-    saveGeminiKey(geminiKey);
-    setSavedSuccess(true);
-    setTimeout(() => {
-      setSavedSuccess(false);
-      setShowSettingsModal(false);
-    }, 1500);
-  };
+  const hasPhase1Data = Boolean(currentPitch.marketingData?.isSyncedFromPhase1);
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs transition-colors duration-200">
@@ -102,10 +80,10 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-600 font-medium">
                 <span className="text-slate-400">النشاط المختار:</span>
-                <span className="font-bold text-slate-800 truncate max-w-[200px] sm:max-w-[320px]">{bizName}</span>
+                <span className="font-bold text-slate-800 truncate max-w-[160px] sm:max-w-[240px]">{bizName}</span>
                 <button
                   onClick={onOpenActivitiesModal}
-                  className="text-amber-600 hover:text-amber-700 font-bold hover:underline inline-flex items-center gap-1 text-[11px] cursor-pointer"
+                  className="text-amber-600 hover:text-amber-700 font-bold hover:underline inline-flex items-center gap-0.5 text-[11px] cursor-pointer"
                 >
                   <Store className="w-3 h-3" />
                   [تغيير]
@@ -114,46 +92,78 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Center Mode Switcher */}
-          <div className="hidden md:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+          {/* Center View Switcher */}
+          <div className="hidden lg:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
             <button
               onClick={() => onModeChange('admin')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 currentMode === 'admin'
                   ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Sliders className="w-3.5 h-3.5 text-amber-500" />
-              <span>لوحة إعداد العرض</span>
+              <span>لوحة الإدارة</span>
             </button>
             <button
               onClick={() => onModeChange('client')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 currentMode === 'client'
                   ? 'bg-amber-500 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Smartphone className="w-3.5 h-3.5" />
-              <span>معاينة شاشة العميل</span>
-              {currentPitch.watermarkSettings.enabled && (
-                <span className="bg-amber-600/60 text-[9px] px-1.5 py-0.2 rounded-full font-mono">محمي 🔒</span>
-              )}
+              <span>العرض الشامل</span>
+            </button>
+            <button
+              onClick={() => onModeChange('images_only')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                currentMode === 'images_only'
+                  ? 'bg-amber-500 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <ImageIcon className="w-3.5 h-3.5" />
+              <span>تصاميم الصور فقط 🖼️</span>
             </button>
           </div>
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
             
-            {/* Live Viewers Pulse */}
-            <div className="hidden lg:flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs font-bold">
-              <span className={`w-2 h-2 rounded-full ${activeNowCount > 0 ? 'bg-emerald-500 animate-ping' : 'bg-slate-300'}`} />
-              <span className="text-slate-700">تصفح حي:</span>
-              <span className={`font-mono font-black ${activeNowCount > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
-                {activeNowCount}
-              </span>
-            </div>
+            {/* Phase 1 AI Generator Button */}
+            <button
+              onClick={onOpenPostGenerator}
+              title="توليد منشورات تسويقية مباشرة بالذكاء الاصطناعي"
+              className="flex items-center gap-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 border border-amber-300 px-3 py-2 rounded-xl text-xs font-black transition-colors cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+              <span className="hidden sm:inline">توليد منشورات 🪄</span>
+            </button>
+
+            {/* Sync Phase 1 Button */}
+            <button
+              onClick={onSyncPhase1}
+              disabled={isSyncingPhase1}
+              title="مزامنة مع استوديو التسويق (المرحلة 1)"
+              className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                hasPhase1Data
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <RefreshCw className={`w-4 h-4 ${isSyncingPhase1 ? 'animate-spin text-amber-500' : ''}`} />
+            </button>
+
+            {/* Advanced Link Settings */}
+            <button
+              onClick={onOpenAdvancedLinkSettings}
+              title="الإعدادات المتقدمة للرابط"
+              className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 hover:text-slate-900 transition-colors cursor-pointer"
+            >
+              <LinkIcon className="w-4 h-4 text-amber-600" />
+            </button>
 
             {/* Watermark Settings */}
             <button
@@ -161,40 +171,16 @@ export const Header: React.FC<HeaderProps> = ({
               title="إعدادات الحماية والعلامة المائية"
               className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 hover:text-slate-900 transition-colors cursor-pointer"
             >
-              <ShieldCheck className={`w-5 h-5 ${currentPitch.watermarkSettings.enabled ? 'text-amber-500' : 'text-slate-400'}`} />
-            </button>
-
-            {/* Shareable Client Preview Link Button */}
-            <button
-              onClick={() => {
-                const url = getShareablePreviewUrl(currentPitch);
-                navigator.clipboard.writeText(url);
-                setCopiedPreviewLink(true);
-                setTimeout(() => setCopiedPreviewLink(false), 2500);
-              }}
-              title="نسخ رابط المعاينة التفاعلية لإرساله للعميل عبر واتساب"
-              className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-700 px-3 py-2 rounded-xl text-xs font-black shadow-xs transition-all cursor-pointer"
-            >
-              {copiedPreviewLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Link className="w-4 h-4 text-amber-400" />}
-              <span className="hidden sm:inline">{copiedPreviewLink ? 'تم نسخ الرابط!' : 'نسخ رابط المعاينة'}</span>
+              <ShieldCheck className={`w-4 h-4 ${currentPitch.watermarkSettings.enabled ? 'text-amber-500' : 'text-slate-400'}`} />
             </button>
 
             {/* WhatsApp Pitch Message Modal */}
             <button
               onClick={onOpenWhatsAppModal}
-              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs font-black shadow-xs hover:shadow-sm transition-all cursor-pointer"
+              className="hidden sm:flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs font-black shadow-xs transition-all cursor-pointer"
             >
-              <Send className="w-4 h-4" />
-              <span className="hidden sm:inline">رسالة واتساب العميل</span>
-            </button>
-
-            {/* Settings Modal Toggle */}
-            <button
-              onClick={() => setShowSettingsModal(true)}
-              title="إعدادات السيرفرات وقواعد البيانات"
-              className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 hover:text-slate-900 transition-colors cursor-pointer"
-            >
-              <Settings className="w-5 h-5 text-slate-600" />
+              <Send className="w-3.5 h-3.5" />
+              <span>رسالة الواتساب</span>
             </button>
 
             {/* Promote to Core Modal */}
@@ -211,145 +197,34 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Settings Modal */}
-      {showSettingsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 border border-slate-200 shadow-2xl text-right space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-amber-100 text-amber-800">
-                  <Database className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">إعدادات السيرفرات وقواعد البيانات</h3>
-                  <p className="text-xs text-slate-500">Supabase Multi-Tier Server Configuration</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowSettingsModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveSettings} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  1. سيرفر مخرجات التطبيقات المساعدة (Dedicated Ecosystem Server):
-                </label>
-                <input
-                  type="text"
-                  value={ecosystemUrl}
-                  onChange={(e) => setEcosystemUrl(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 font-mono text-xs"
-                  placeholder="https://hzlbbzxccqfdeyumtxph.supabase.co"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  مفتاح سيرفر المخرجات (Ecosystem Anon Key):
-                </label>
-                <input
-                  type="password"
-                  value={ecosystemKey}
-                  onChange={(e) => setEcosystemKey(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 font-mono text-xs"
-                  placeholder="أدخل مفتاح Supabase Anon Key الخاص بالمشروع hzlbbzxccqfdeyumtxph"
-                />
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  تجد المفتاح في: Supabase Dashboard &gt; Project Settings &gt; API &gt; anon public
-                </p>
-              </div>
-
-              <div className="pt-2 border-t border-slate-100">
-                <label className="block font-bold text-slate-700 mb-1">
-                  2. السيرفر الأساسي لدليلك (Core Production Server):
-                </label>
-                <input
-                  type="text"
-                  value={coreUrl}
-                  onChange={(e) => setCoreUrl(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 font-mono text-xs"
-                  placeholder="https://xdqpbajymacpdccorjcj.supabase.co"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  مفتاح السيرفر الأساسي (Core Anon Key):
-                </label>
-                <input
-                  type="password"
-                  value={coreKey}
-                  onChange={(e) => setCoreKey(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 font-mono text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  مفتاح Google Gemini AI (لتوليد وتحسين رسائل الواتساب):
-                </label>
-                <input
-                  type="password"
-                  value={geminiKey}
-                  onChange={(e) => setGeminiKey(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 font-mono text-xs"
-                  placeholder="AQ... أو AIzaSy..."
-                />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  مفتاحك السحابي مدمج تلقائياً (gemini-3.6-flash)، وتستطيع إدخال مفتاحك الخاص في أي وقت.
-                </p>
-              </div>
-
-              {savedSuccess && (
-                <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl font-bold flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>تم حفظ وتحديث إعدادات السيرفر بنجاح!</span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowSettingsModal(false)}
-                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold"
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold shadow-xs"
-                >
-                  حفظ الإعدادات
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Mobile Mode Switcher Bar */}
-      <div className="md:hidden flex items-center justify-around bg-slate-50 border-t border-slate-200 px-3 py-1.5">
+      <div className="lg:hidden flex items-center justify-around bg-slate-50 border-t border-slate-200 px-3 py-1.5">
         <button
           onClick={() => onModeChange('admin')}
-          className={`flex items-center gap-1.5 py-1 px-3 rounded-lg text-xs font-bold ${
+          className={`flex items-center gap-1.5 py-1 px-2.5 rounded-lg text-xs font-bold ${
             currentMode === 'admin' ? 'bg-white text-slate-900 shadow-xs border border-slate-200' : 'text-slate-600'
           }`}
         >
-          <Sliders className="w-3.5 h-3.5 text-amber-500" />
-          <span>لوحة الإدارة</span>
+          <Sliders className="w-3 h-3 text-amber-500" />
+          <span>الإدارة</span>
         </button>
         <button
           onClick={() => onModeChange('client')}
-          className={`flex items-center gap-1.5 py-1 px-3 rounded-lg text-xs font-bold ${
+          className={`flex items-center gap-1.5 py-1 px-2.5 rounded-lg text-xs font-bold ${
             currentMode === 'client' ? 'bg-amber-500 text-white shadow-xs' : 'text-slate-600'
           }`}
         >
-          <Smartphone className="w-3.5 h-3.5" />
-          <span>صفحة العميل (محمية)</span>
+          <Smartphone className="w-3 h-3" />
+          <span>العرض الشامل</span>
+        </button>
+        <button
+          onClick={() => onModeChange('images_only')}
+          className={`flex items-center gap-1.5 py-1 px-2.5 rounded-lg text-xs font-bold ${
+            currentMode === 'images_only' ? 'bg-amber-500 text-white shadow-xs' : 'text-slate-600'
+          }`}
+        >
+          <ImageIcon className="w-3 h-3" />
+          <span>الصور فقط 🖼️</span>
         </button>
       </div>
     </header>

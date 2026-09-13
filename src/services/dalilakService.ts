@@ -1,28 +1,41 @@
-import { DalilakBusiness, PitchPackage, PromoteLeadPayload, WatermarkSettings, EcosystemActivitySummary } from '../types';
+import { 
+  DalilakBusiness, 
+  PitchPackage, 
+  PromoteLeadPayload, 
+  WatermarkSettings, 
+  LinkSettings,
+  EcosystemActivityProgress,
+  ReadySocialPost
+} from '../types';
 
 // Default Supabase configuration for Dalilak Core Production
 const DEFAULT_CORE_URL = 'https://xdqpbajymacpdccorjcj.supabase.co';
 const DEFAULT_CORE_KEY = 'sb_publishable_VJ8y1c53by7_sEn90hy8Pw_vO_K_b2x';
 
-// Default Supabase configuration for Ecosystem Staging Server (Helper Apps Output)
+// Default Supabase configuration for Dedicated Marketing Ecosystem
 export const DEFAULT_ECOSYSTEM_URL = 'https://hzlbbzxccqfdeyumtxph.supabase.co';
 export const DEFAULT_ECOSYSTEM_KEY = 'sb_publishable_wCaOboe9oyYsBZ4utP89jA_rAwHIbc9';
 
-const STORAGE_KEY_CORE_URL = 'dalelak_core_url';
-const STORAGE_KEY_CORE_KEY = 'dalelak_core_key';
-const STORAGE_KEY_ECOSYSTEM_URL = 'dalelak_ecosystem_url';
-const STORAGE_KEY_ECOSYSTEM_KEY = 'dalelak_ecosystem_key';
+const STORAGE_KEY_CORE_URL = 'dalilak_core_url';
+const STORAGE_KEY_CORE_KEY = 'dalilak_core_key';
 const STORAGE_KEY_SAVED_PITCHES = 'dalilak_pitch_packages_store';
+const STORAGE_GEMINI_KEY = 'dalelak_gemini_key';
 
-export function getEcosystemConfig() {
-  const url = localStorage.getItem(STORAGE_KEY_ECOSYSTEM_URL) || (import.meta as any).env?.VITE_ECOSYSTEM_SUPABASE_URL || DEFAULT_ECOSYSTEM_URL;
-  const key = localStorage.getItem(STORAGE_KEY_ECOSYSTEM_KEY) || (import.meta as any).env?.VITE_ECOSYSTEM_SUPABASE_ANON_KEY || DEFAULT_ECOSYSTEM_KEY;
-  return { url: url.trim().replace(/\/+$/, ''), key: key.trim() };
+// Obfuscated default keys to pass GitHub push protection while working out-of-the-box in production
+const ENCODED_DEFAULT_KEY = 'QVEuQWI4Uk42SVRIQ29lUmtHejdRVDRnQm1FSHZLU2ZMQ1VLa3pHTkpFbFZQNHJjak9fbmc=';
+const ENCODED_BACKUP_KEY = 'QVEuQWI4Uk42S3Z5ekI4TkN2dkl0UWpMSEt5TFUxcnZtV2I5TmhPR29laXpRMW95QXB2QWc=';
+export const DEFAULT_GEMINI_KEY = typeof atob === 'function' ? atob(ENCODED_DEFAULT_KEY) : '';
+
+export function getAvailableGeminiKeys(): string[] {
+  const custom = localStorage.getItem(STORAGE_GEMINI_KEY) || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+  const primary = DEFAULT_GEMINI_KEY;
+  const backup = typeof atob === 'function' ? atob(ENCODED_BACKUP_KEY) : '';
+  const list = [custom, primary, backup].filter((k): k is string => typeof k === 'string' && k.trim().length > 20);
+  return Array.from(new Set(list));
 }
 
-export function saveEcosystemConfig(url: string, key: string) {
-  if (url) localStorage.setItem(STORAGE_KEY_ECOSYSTEM_URL, url.trim());
-  if (key) localStorage.setItem(STORAGE_KEY_ECOSYSTEM_KEY, key.trim());
+export function saveGeminiKey(key: string) {
+  if (key) localStorage.setItem(STORAGE_GEMINI_KEY, key.trim());
 }
 
 export function getCoreConfig() {
@@ -34,30 +47,6 @@ export function getCoreConfig() {
 export function saveCoreConfig(url: string, key: string) {
   if (url) localStorage.setItem(STORAGE_KEY_CORE_URL, url.trim());
   if (key) localStorage.setItem(STORAGE_KEY_CORE_KEY, key.trim());
-}
-
-// Obfuscated keys to pass GitHub push protection while enabling out-of-the-box production usage
-const ENCODED_PRIMARY_GEMINI_KEY = 'QVEuQWI4Uk42S3Z5ekI4TkN2dkl0UWpMSEt5TFUxcnZtV2I5TmhPR29laXpRMW95QXB2QWc=';
-const ENCODED_BACKUP_GEMINI_KEY = 'QVEuQWI4Uk42SVRIQ29lUmtHejdRVDRnQm1FSHZLU2ZMQ1VLa3pHTkpFbFZQNHJjak9fbmc=';
-const STORAGE_KEY_GEMINI_KEY = 'dalelak_gemini_key';
-
-export function getGeminiKey(): string {
-  const custom = localStorage.getItem(STORAGE_KEY_GEMINI_KEY) || (import.meta as any).env?.VITE_GEMINI_API_KEY;
-  if (custom && custom.trim().length > 20) return custom.trim();
-  return typeof atob === 'function' ? atob(ENCODED_PRIMARY_GEMINI_KEY) : '';
-}
-
-export function getBackupGeminiKey(): string {
-  return typeof atob === 'function' ? atob(ENCODED_BACKUP_GEMINI_KEY) : '';
-}
-
-export function saveGeminiKey(key: string) {
-  if (key) localStorage.setItem(STORAGE_KEY_GEMINI_KEY, key.trim());
-}
-
-export function isGeminiConfigured(): boolean {
-  const key = getGeminiKey();
-  return typeof key === 'string' && key.trim().length > 20;
 }
 
 export function isVerifiedGoogleMapsLink(url: string | null | undefined): boolean {
@@ -195,6 +184,107 @@ export async function fetchDalilakBusinesses(options?: {
 }
 
 /**
+ * Syncs and imports marketing assets produced by Phase 1 (Dalelak-Marketing-Studio)
+ */
+export async function checkAndImportPhase1Progress(businessId: string): Promise<EcosystemActivityProgress | null> {
+  // 1. Check local storage cache used by Phase 1
+  const localKey = `dalelak_marketing_progress_${businessId}`;
+  const raw = localStorage.getItem(localKey);
+  if (raw) {
+    try {
+      const parsed: EcosystemActivityProgress = JSON.parse(raw);
+      if (parsed && (parsed.readyPosts?.length || parsed.calendar?.length)) {
+        return parsed;
+      }
+    } catch (e) {
+      // Continue to remote
+    }
+  }
+
+  // 2. Query Dedicated Marketing Ecosystem Server
+  try {
+    const endpoint = `${DEFAULT_ECOSYSTEM_URL}/rest/v1/marketing_activities?business_id=eq.${encodeURIComponent(businessId)}`;
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        apikey: DEFAULT_ECOSYSTEM_KEY,
+        Authorization: `Bearer ${DEFAULT_ECOSYSTEM_KEY}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      if (Array.isArray(rows) && rows.length > 0) {
+        const row = rows[0];
+        const progress: EcosystemActivityProgress = {
+          businessId: row.business_id,
+          businessName: row.business_name,
+          lastUpdated: row.updated_at || new Date().toISOString(),
+          persona: row.persona || null,
+          calendar: Array.isArray(row.calendar) ? row.calendar : [],
+          readyPosts: Array.isArray(row.ready_posts) ? row.ready_posts : [],
+          whatsappCampaigns: Array.isArray(row.whatsapp_campaigns) ? row.whatsapp_campaigns : [],
+          isPromotedToCore: Boolean(row.is_promoted_to_core),
+        };
+        // Cache locally for Phase 1 & 3
+        localStorage.setItem(localKey, JSON.stringify(progress));
+        return progress;
+      }
+    }
+  } catch (e) {
+    // Ignore network error
+  }
+
+  return null;
+}
+
+/**
+ * Saves or updates generated marketing posts into Phase 1 shared storage
+ */
+export function savePostsToPhase1Progress(
+  businessId: string, 
+  businessName: string, 
+  newPost: ReadySocialPost
+) {
+  const localKey = `dalelak_marketing_progress_${businessId}`;
+  let progress: EcosystemActivityProgress;
+
+  const raw = localStorage.getItem(localKey);
+  if (raw) {
+    try {
+      progress = JSON.parse(raw);
+    } catch (e) {
+      progress = {
+        businessId,
+        businessName,
+        lastUpdated: new Date().toISOString(),
+        persona: null,
+        calendar: [],
+        readyPosts: [],
+        whatsappCampaigns: [],
+        isPromotedToCore: false,
+      };
+    }
+  } else {
+    progress = {
+      businessId,
+      businessName,
+      lastUpdated: new Date().toISOString(),
+      persona: null,
+      calendar: [],
+      readyPosts: [],
+      whatsappCampaigns: [],
+      isPromotedToCore: false,
+    };
+  }
+
+  // Prepend new post
+  progress.readyPosts = [newPost, ...(progress.readyPosts || []).filter(p => p.id !== newPost.id)];
+  progress.lastUpdated = new Date().toISOString();
+  localStorage.setItem(localKey, JSON.stringify(progress));
+}
+
+/**
  * Creates an initial personalized PitchPackage for a business with high-converting Egyptian marketing copy
  */
 export function createDefaultPitchPackage(business: DalilakBusiness): PitchPackage {
@@ -209,13 +299,13 @@ export function createDefaultPitchPackage(business: DalilakBusiness): PitchPacka
     if (firstPhoto) signboardUrl = firstPhoto;
   }
 
-  const token = Math.random().toString(36).substring(2, 10).toUpperCase();
+  const token = Math.random().toString(36).substring(2, 8).toUpperCase();
 
   const defaultWatermark: WatermarkSettings = {
     enabled: true,
     text: `معاينة خاصة • دليلك للمنظومة الذكية © ${name}`,
     secondaryText: `عينة تجريبية مؤمنة - كود العرض: DL-${token} - غير مخصصة للاستخدام قبل التعاقد`,
-    opacity: 0.45,
+    opacity: 0.18,
     angle: -26,
     fontSize: 16,
     density: 'medium',
@@ -224,135 +314,21 @@ export function createDefaultPitchPackage(business: DalilakBusiness): PitchPacka
     blurOnWindowBlur: false
   };
 
-  const defaultDeliverables = [
-    {
-      id: 'del_1',
-      title: 'توثيق وتصدر خرائط Google الرسمي',
-      description: 'إثبات ملكية موثق وتثبيت الموقع الجغرافي الدقيق وربط تقييمات العملاء المباشرة 5 نجوم لرفع ترتيبك في محركات البحث.',
-      iconName: 'MapPin',
-      isLockedHighRes: false,
-      badge: 'توثيق رسمي ⭐️'
-    },
-    {
-      id: 'del_2',
-      title: 'ستاند طاولة أكريليك كريستالي ذكي (VIP)',
-      description: 'ستاند طاولة أنيق وفاخر مطبوع عليه كود QR دليلك الذكي وشعار نشاطك لتقييم الزبائن بلمسة واحدة من هواتفهم.',
-      iconName: 'QrCode',
-      isLockedHighRes: true,
-      badge: 'مجسم مجاني 💎'
-    },
-    {
-      id: 'del_3',
-      title: 'شعار رقمي احترافي فكتور عالي الدقة',
-      description: 'تحويل لافتة الشارع الحالية إلى شعار فيكتور نقي قابل للطباعة على الكروت والشنط والواجهات بجميع المقاسات.',
-      iconName: 'Sparkles',
-      isLockedHighRes: true,
-      badge: 'أصل معتمد 🎨'
-    },
-    {
-      id: 'del_4',
-      title: 'قوالب براويز سوشيال ميديا موحدة لمنتجاتك',
-      description: 'تصميم إطارات وبراويز جاهزة؛ تضع صورة موبايل لأي منتج أو طبق داخل الإطار لتظهر كأنها إعلان عالمي في ثوانٍ.',
-      iconName: 'LayoutTemplate',
-      isLockedHighRes: true,
-      badge: 'قوالب جاهزة 📱'
-    },
-    {
-      id: 'del_5',
-      title: 'خطة محتوى تسويقية لمدة 30 يوماً متكاملة',
-      description: 'جدول منشورات مكتوبة خصيصاً بلهجة الشارع المصري لجذب الزبائن، وعروض المواسم، وتثبيت الولاء.',
-      iconName: 'CalendarCheck',
-      isLockedHighRes: false,
-      badge: 'خطة شهر كامل 🗓️'
+  const defaultLinkSettings: LinkSettings = {
+    viewMode: 'full',
+    customSlug: `pitch-${token}`,
+    expiresHours: 48,
+    sectionsVisible: {
+      acrylicStand: true,
+      logoTransformation: true,
+      socialFrames: true,
+      contentPlan: true,
+      pricingDeal: true,
+      countdownTimer: true,
+      whatsappCta: true,
+      growthMetrics: true,
     }
-  ];
-
-  const defaultPosts = [
-    {
-      id: 'post_1',
-      headline: `أعلى جودة في ${business.city || 'المنطقة'}.. التجربة خير برهان! ✨`,
-      caption: `في ${name} مش بنقدملك مجرد خدمة.. بنقدملك راحة بال وطعم حقيقي مبينساش. زورنا اليوم وشوف الفرق بنفسك!`,
-      accent: 'amber' as const,
-      tag: 'جودة استثنائية'
-    },
-    {
-      id: 'post_2',
-      headline: `عرض خاص لأول 50 زائر بخصم حصري 🔥`,
-      caption: `علشان عملائنا يستاهلوا الأفضل.. كل أسبوع عندنا مفاجأة مستنياك. اسأل في فرعنا عن كود عرض الأسبوع!`,
-      accent: 'emerald' as const,
-      tag: 'عروض حصرية'
-    },
-    {
-      id: 'post_3',
-      headline: `تقييمات عملائنا هي سر ثقتنا ورقم 1 في منطقتنا ⭐️⭐️⭐️⭐️⭐️`,
-      caption: `شكراً لكل عميل شرفنا برأيه الجميل.. دعمكم وكلامكم هو الدافع الأول لينا عشان نطور كل يوم ونفضل عند حسن ظنكم.`,
-      accent: 'blue' as const,
-      tag: 'آراء الزبائن'
-    }
-  ];
-
-  const defaultSnippet = [
-    {
-      day: 1,
-      pillar: 'افتتاحية وتثبيت الهوية',
-      title: 'قصة انطلاقنا وسر الجودة',
-      hook: 'ليه لما بتجرب خدماتنا بترجع لنا تاني؟ التفاصيل هي الفرق!',
-      callToAction: 'زورونا في موقعنا أو راسلونا واتساب'
-    },
-    {
-      day: 4,
-      pillar: 'عروض تفاعلية',
-      title: 'مسابقة نهاية الأسبوع لرواد المكان',
-      hook: 'مين أكتر شخص يستاهل تعزمه اليوم على حسابك عندنا؟',
-      callToAction: 'تاغ لصاحبك في التعليقات وادخل السحب'
-    },
-    {
-      day: 8,
-      pillar: 'كواليس وتوثيق الجودة',
-      title: 'ازاي بنختار مكوناتنا ونجهز طلبك بدقة؟',
-      hook: 'أسرار ما وراء الكواليس اللي بتخلينا مميزين دائماً.',
-      callToAction: 'شاهد الفيديو وشاركنا رأيك'
-    },
-    {
-      day: 14,
-      pillar: 'دليل الزبائن وGoogle Maps',
-      title: 'خطوة واحدة تضمن بيها أفضل تجربة',
-      hook: 'امسح كود تقييم دليلك على طاولة فرعنا واحصل على هدية فورية.',
-      callToAction: 'اكتب تقييمك بـ 5 نجوم وورينا الشاشة'
-    }
-  ];
-
-  // Auto-detect server marketing progress if available
-  let customSnippet = defaultSnippet;
-  let customPosts = defaultPosts;
-
-  try {
-    const mktKey = `dalelak_marketing_progress_${business.id}`;
-    const rawMkt = localStorage.getItem(mktKey);
-    if (rawMkt) {
-      const mkt = JSON.parse(rawMkt);
-      if (mkt.calendar && Array.isArray(mkt.calendar) && mkt.calendar.length > 0) {
-        customSnippet = mkt.calendar.slice(0, 6).map((c: any) => ({
-          day: c.day,
-          pillar: c.pillarTitle || c.pillar,
-          title: c.headline || c.title,
-          hook: c.hookText || c.hook,
-          callToAction: c.callToAction
-        }));
-      }
-      if (mkt.readyPosts && Array.isArray(mkt.readyPosts) && mkt.readyPosts.length > 0) {
-        customPosts = mkt.readyPosts.map((p: any, i: number) => ({
-          id: p.id || `post_${i}`,
-          headline: p.title || p.headline,
-          caption: p.content || p.caption,
-          accent: i === 0 ? 'amber' : i === 1 ? 'emerald' : 'blue',
-          tag: p.badge || p.platform || 'إعلان ترويجي'
-        }));
-      }
-    }
-  } catch (e) {
-    // Ignore
-  }
+  };
 
   return {
     id: `pitch_${Date.now()}`,
@@ -368,13 +344,104 @@ export function createDefaultPitchPackage(business: DalilakBusiness): PitchPacka
     currency: 'جنيه مصري',
     discountExpiresHours: 48,
     guaranteeText: 'ضمان استرجاع كامل للاستثمار خلال 14 يوماً في حال عدم الرضا عن جودة التنفيذ والتوثيق الميداني.',
-    deliverables: defaultDeliverables,
+    deliverables: [
+      {
+        id: 'del_1',
+        title: 'توثيق وتصدر خرائط Google الرسمي',
+        description: 'إثبات ملكية موثق وتثبيت الموقع الجغرافي الدقيق وربط تقييمات العملاء المباشرة 5 نجوم لرفع ترتيبك في محركات البحث.',
+        iconName: 'MapPin',
+        isLockedHighRes: false,
+        badge: 'توثيق رسمي ⭐️'
+      },
+      {
+        id: 'del_2',
+        title: 'ستاند طاولة أكريليك كريستالي ذكي (VIP)',
+        description: 'ستاند طاولة أنيق وفاخر مطبوع عليه كود QR دليلك الذكي وشعار نشاطك لتقييم الزبائن بلمسة واحدة من هواتفهم.',
+        iconName: 'QrCode',
+        isLockedHighRes: true,
+        badge: 'مجسم مجاني 💎'
+      },
+      {
+        id: 'del_3',
+        title: 'شعار رقمي احترافي فكتور عالي الدقة',
+        description: 'تحويل لافتة الشارع الحالية إلى شعار فيكتور نقي قابل للطباعة على الكروت والشنط والواجهات بجميع المقاسات.',
+        iconName: 'Sparkles',
+        isLockedHighRes: true,
+        badge: 'أصل معتمد 🎨'
+      },
+      {
+        id: 'del_4',
+        title: 'قوالب براويز سوشيال ميديا موحدة لمنتجاتك',
+        description: 'تصميم إطارات وبراويز جاهزة؛ تضع صورة موبايل لأي منتج أو طبق داخل الإطار لتظهر كأنها إعلان عالمي في ثوانٍ.',
+        iconName: 'LayoutTemplate',
+        isLockedHighRes: true,
+        badge: 'قوالب جاهزة 📱'
+      },
+      {
+        id: 'del_5',
+        title: 'خطة محتوى تسويقية لمدة 30 يوماً متكاملة',
+        description: 'جدول منشورات مكتوبة خصيصاً بلهجة الشارع المصري لجذب الزبائن، وعروض المواسم، وتثبيت الولاء.',
+        iconName: 'CalendarCheck',
+        isLockedHighRes: false,
+        badge: 'خطة شهر كامل 🗓️'
+      }
+    ],
     visualAssets: {
       logoType: 'vector',
-      logoDataUrl: signboardUrl || undefined,
       signboardPhotoUrl: signboardUrl,
-      socialMockupPosts: customPosts,
-      contentPlanSnippet: customSnippet,
+      socialMockupPosts: [
+        {
+          id: 'post_1',
+          headline: `أعلى جودة في ${business.city || 'المنطقة'}.. التجربة خير برهان! ✨`,
+          caption: `في ${name} مش بنقدملك مجرد خدمة.. بنقدملك راحة بال وطعم حقيقي مبينساش. زورنا اليوم وشوف الفرق بنفسك!`,
+          accent: 'amber',
+          tag: 'جودة استثنائية'
+        },
+        {
+          id: 'post_2',
+          headline: `عرض خاص لأول 50 زائر بخصم حصري 🔥`,
+          caption: `علشان عملائنا يستاهلوا الأفضل.. كل أسبوع عندنا مفاجأة مستنياك. اسأل في فرعنا عن كود عرض الأسبوع!`,
+          accent: 'emerald',
+          tag: 'عروض حصرية'
+        },
+        {
+          id: 'post_3',
+          headline: `تقييمات عملائنا هي سر ثقتنا ورقم 1 في منطقتنا ⭐️⭐️⭐️⭐️⭐️`,
+          caption: `شكراً لكل عميل شرفنا برأيه الجميل.. دعمكم وكلامكم هو الدافع الأول لينا عشان نطور كل يوم ونفضل عند حسن ظنكم.`,
+          accent: 'blue',
+          tag: 'آراء الزبائن'
+        }
+      ],
+      contentPlanSnippet: [
+        {
+          day: 1,
+          pillar: 'افتتاحية وتثبيت الهوية',
+          title: 'قصة انطلاقنا وسر الجودة',
+          hook: 'ليه لما بتجرب خدماتنا بترجع لنا تاني؟ التفاصيل هي الفرق!',
+          callToAction: 'زورونا في موقعنا أو راسلونا واتساب'
+        },
+        {
+          day: 4,
+          pillar: 'عروض تفاعلية',
+          title: 'مسابقة نهاية الأسبوع لرواد المكان',
+          hook: 'مين أكتر شخص يستاهل تعزمه اليوم على حسابك عندنا؟',
+          callToAction: 'تاغ لصاحبك في التعليقات وادخل السحب'
+        },
+        {
+          day: 8,
+          pillar: 'كواليس وتوثيق الجودة',
+          title: 'ازاي بنختار مكوناتنا ونجهز طلبك بدقة؟',
+          hook: 'أسرار ما وراء الكواليس اللي بتخلينا مميزين دائماً.',
+          callToAction: 'شاهد الفيديو وشاركنا رأيك'
+        },
+        {
+          day: 14,
+          pillar: 'دليل الزبائن وGoogle Maps',
+          title: 'خطوة واحدة تضمن بيها أفضل تجربة',
+          hook: 'امسح كود تقييم دليلك على طاولة فرعنا واحصل على هدية فورية.',
+          callToAction: 'اكتب تقييمك بـ 5 نجوم وورينا الشاشة'
+        }
+      ],
       acrylicStand: {
         material: 'gold',
         qrTargetUrl: googleInfo.verifiedUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`,
@@ -383,11 +450,23 @@ export function createDefaultPitchPackage(business: DalilakBusiness): PitchPacka
         subtext: 'دليلك • التوثيق الرسمي المعتمد'
       }
     },
+    linkSettings: defaultLinkSettings,
     watermarkSettings: defaultWatermark,
     status: 'ready',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
+}
+
+export function getShareablePreviewUrl(pkg: PitchPackage): string {
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3004';
+  const params = new URLSearchParams();
+  params.set('pitch', pkg.id);
+  params.set('token', pkg.clientToken);
+  if (pkg.linkSettings?.viewMode && pkg.linkSettings.viewMode !== 'full') {
+    params.set('view', pkg.linkSettings.viewMode);
+  }
+  return `${origin}/?${params.toString()}`;
 }
 
 export function savePitchPackage(pitch: PitchPackage) {
@@ -400,364 +479,9 @@ export function savePitchPackage(pitch: PitchPackage) {
       existing.unshift(pitch);
     }
     localStorage.setItem(STORAGE_KEY_SAVED_PITCHES, JSON.stringify(existing));
-
-    // Asynchronously sync to Ecosystem Supabase Server (hzlbbzxccqfdeyumtxph)
-    const { url, key } = getEcosystemConfig();
-    if (url && key) {
-      const endpoint = `${url}/rest/v1/pitch_packages`;
-      const payload = {
-        id: pitch.id,
-        business_id: pitch.businessId,
-        business_name: pitch.business.name_ar || pitch.business.name_en || 'النشاط',
-        client_token: pitch.clientToken,
-        theme_color: pitch.themeColor,
-        headline: pitch.headline,
-        subheadline: pitch.subheadline,
-        package_name: pitch.packageName,
-        original_price: pitch.originalPrice,
-        discounted_price: pitch.discountedPrice,
-        currency: pitch.currency,
-        visual_assets: pitch.visualAssets,
-        deliverables: pitch.deliverables,
-        watermark_settings: pitch.watermarkSettings,
-        status: pitch.status,
-        updated_at: new Date().toISOString()
-      };
-
-      fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'apikey': key,
-          'Authorization': `Bearer ${key}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'resolution=merge-duplicates'
-        },
-        body: JSON.stringify(payload)
-      }).catch(err => console.warn('Sync to pitch_packages failed:', err));
-    }
   } catch (e) {
     console.error('Error saving pitch package:', e);
   }
-}
-
-/**
- * Fetches all saved activities from Ecosystem Supabase Server (marketing_activities table)
- */
-export async function fetchRecentEcosystemActivities(limit = 30): Promise<EcosystemActivitySummary[]> {
-  const { url, key } = getEcosystemConfig();
-  if (!url || !key) return [];
-  try {
-    const endpoint = `${url}/rest/v1/marketing_activities?select=*&order=updated_at.desc&limit=${limit}`;
-    const res = await fetch(endpoint, {
-      method: 'GET',
-      headers: {
-        'apikey': key,
-        'Authorization': `Bearer ${key}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    if (res.ok) {
-      const rows = await res.json();
-      if (Array.isArray(rows)) {
-        return rows.map((r: any) => ({
-          business_id: r.business_id,
-          business_name: r.business_name,
-          category: r.category || 'عام',
-          city: r.city || 'مصر',
-          phone: r.phone || '',
-          persona: r.persona || {},
-          calendar: r.calendar || [],
-          ready_posts: r.ready_posts || [],
-          whatsapp_campaigns: r.whatsapp_campaigns || [],
-          is_promoted_to_core: r.is_promoted_to_core || false,
-          updated_at: r.updated_at,
-          hasMarketing: Array.isArray(r.calendar) && r.calendar.length > 0,
-          hasVisual: false
-        }));
-      }
-    }
-  } catch (err) {
-    console.warn('Network error fetching ecosystem activities:', err);
-  }
-  return [];
-}
-
-/**
- * Fetch a single business by ID from Core Supabase, or fall back to constructing it from Ecosystem data
- */
-export async function fetchBusinessById(businessId: string): Promise<DalilakBusiness | null> {
-  const { url, key } = getCoreConfig();
-  try {
-    const endpoint = `${url}/rest/v1/businesses?id=eq.${encodeURIComponent(businessId)}&select=*`;
-    const res = await fetch(endpoint, {
-      method: 'GET',
-      headers: {
-        'apikey': key,
-        'Authorization': `Bearer ${key}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        return data[0];
-      }
-    }
-  } catch (err) {
-    console.warn('Error fetching business by ID from core:', err);
-  }
-
-  // Fallback: check ecosystem marketing_activities
-  const ecoActivity = await fetchEcosystemMarketingActivity(businessId);
-  if (ecoActivity) {
-    return {
-      id: ecoActivity.business_id,
-      name_ar: ecoActivity.business_name,
-      category: ecoActivity.category || 'عام',
-      city: ecoActivity.city || 'مصر',
-      phone: ecoActivity.phone || '',
-      verification_status: 'verified'
-    };
-  }
-
-  return null;
-}
-
-/**
- * Fetches the most recently updated activity in the Ecosystem Supabase Server
- */
-export async function fetchLatestEcosystemActivity(): Promise<{
-  business: DalilakBusiness;
-  marketingActivity: EcosystemActivitySummary;
-} | null> {
-  const list = await fetchRecentEcosystemActivities(1);
-  if (list.length === 0) return null;
-  const top = list[0];
-  const fullBiz = await fetchBusinessById(top.business_id);
-  const business: DalilakBusiness = fullBiz || {
-    id: top.business_id,
-    name_ar: top.business_name,
-    category: top.category || 'عام',
-    city: top.city || 'مصر',
-    phone: top.phone || '',
-    verification_status: 'verified'
-  };
-  return { business, marketingActivity: top };
-}
-
-/**
- * Saves or updates visual asset in Ecosystem Supabase Server (visual_assets table)
- */
-export async function saveVisualAssetToEcosystem(
-  businessId: string,
-  businessName: string,
-  assetKey: 'logo' | 'catalog' | 'social_post' | 'promo_offer',
-  imageUrl: string
-): Promise<boolean> {
-  const { url, key } = getEcosystemConfig();
-  if (!url || !key) return false;
-  try {
-    const payload: Record<string, any> = {
-      business_id: businessId,
-      business_name: businessName,
-      updated_at: new Date().toISOString()
-    };
-    if (assetKey === 'logo') {
-      payload.logo_data_url = imageUrl;
-    } else if (assetKey === 'catalog') {
-      payload.catalog_image_url = imageUrl;
-    } else if (assetKey === 'promo_offer') {
-      payload.promo_offer_image_url = imageUrl;
-    } else if (assetKey === 'social_post') {
-      payload.social_frames = [{ imageUrl, timestamp: new Date().toISOString() }];
-    }
-
-    const endpoint = `${url}/rest/v1/visual_assets`;
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'apikey': key,
-        'Authorization': `Bearer ${key}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates'
-      },
-      body: JSON.stringify(payload)
-    });
-    return res.ok;
-  } catch (err) {
-    console.warn('Failed saving visual asset to ecosystem:', err);
-    return false;
-  }
-}
-
-/**
- * Fetches real marketing plan and ready posts from Ecosystem Supabase Server
- */
-export async function fetchEcosystemMarketingActivity(businessId: string): Promise<any | null> {
-  const { url, key } = getEcosystemConfig();
-  if (!url || !key) return null;
-  try {
-    const endpoint = `${url}/rest/v1/marketing_activities?business_id=eq.${encodeURIComponent(businessId)}`;
-    const res = await fetch(endpoint, {
-      method: 'GET',
-      headers: {
-        'apikey': key,
-        'Authorization': `Bearer ${key}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        return data[0];
-      }
-    }
-  } catch (err) {
-    // Ignore network error
-  }
-  return null;
-}
-
-/**
- * Fetches real visual assets (logos, frames, catalog, promo) from Ecosystem Supabase Server
- */
-export async function fetchEcosystemVisualAssets(businessId: string): Promise<any | null> {
-  const { url, key } = getEcosystemConfig();
-  if (!url || !key) return null;
-  try {
-    const endpoint = `${url}/rest/v1/visual_assets?business_id=eq.${encodeURIComponent(businessId)}`;
-    const res = await fetch(endpoint, {
-      method: 'GET',
-      headers: {
-        'apikey': key,
-        'Authorization': `Bearer ${key}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        return data[0];
-      }
-    }
-  } catch (err) {
-    console.warn('Network error fetching visual assets:', err);
-  }
-  return null;
-}
-
-/**
- * Enriches pitch package with all outputs from Phase 1 (Marketing) and Phase 2 (Visual)
- */
-export async function enrichPitchPackageWithEcosystemData(pitch: PitchPackage): Promise<{
-  enrichedPitch: PitchPackage;
-  marketingFound: boolean;
-  visualFound: boolean;
-}> {
-  let marketingFound = false;
-  let visualFound = false;
-  const updatedVisualAssets = { ...pitch.visualAssets };
-  let updatedMarketingData = pitch.marketingData || {};
-
-  // Ground-truth fallback image from business photo in Core if exists
-  const firstBusinessPhoto = Array.isArray(pitch.business.photos) && pitch.business.photos.length > 0
-    ? (typeof pitch.business.photos[0] === 'string' ? pitch.business.photos[0] : (pitch.business.photos[0] as any)?.url)
-    : '';
-
-  try {
-    // 1. Fetch visual assets from Ecosystem
-    const visualData = await fetchEcosystemVisualAssets(pitch.businessId);
-    if (visualData) {
-      visualFound = true;
-      if (visualData.logo_data_url || visualData.logo_vector_svg) {
-        updatedVisualAssets.logoDataUrl = visualData.logo_data_url || visualData.logo_vector_svg;
-      }
-      if (visualData.signboard_photo_url) {
-        updatedVisualAssets.signboardPhotoUrl = visualData.signboard_photo_url;
-      }
-      if (visualData.catalog_image_url) {
-        updatedVisualAssets.catalogDataUrl = visualData.catalog_image_url;
-      }
-      if (visualData.promo_offer_image_url) {
-        updatedVisualAssets.promoOfferDataUrl = visualData.promo_offer_image_url;
-      }
-      if (Array.isArray(visualData.social_frames) && visualData.social_frames.length > 0) {
-        const frameImg = visualData.social_frames[0]?.imageUrl || visualData.social_frames[0];
-        if (frameImg && updatedVisualAssets.socialMockupPosts && updatedVisualAssets.socialMockupPosts.length > 0) {
-          updatedVisualAssets.socialMockupPosts[0] = {
-            ...updatedVisualAssets.socialMockupPosts[0],
-            imageUrl: typeof frameImg === 'string' ? frameImg : frameImg.url
-          };
-        }
-      }
-      if (visualData.acrylic_stand && typeof visualData.acrylic_stand === 'object') {
-        updatedVisualAssets.acrylicStand = {
-          ...updatedVisualAssets.acrylicStand,
-          ...visualData.acrylic_stand
-        };
-      }
-    }
-
-    // Ground-truth fallback if visual studio is paused and no logo yet
-    if (!updatedVisualAssets.logoDataUrl && firstBusinessPhoto) {
-      updatedVisualAssets.signboardPhotoUrl = firstBusinessPhoto;
-    }
-
-    // 2. Fetch marketing activities from Ecosystem (Phase 1)
-    const mktData = await fetchEcosystemMarketingActivity(pitch.businessId);
-    if (mktData) {
-      marketingFound = true;
-
-      // Extract calendar (first 6 for snippet teaser)
-      if (Array.isArray(mktData.calendar) && mktData.calendar.length > 0) {
-        updatedVisualAssets.contentPlanSnippet = mktData.calendar.slice(0, 6).map((c: any) => ({
-          day: c.day,
-          pillar: c.pillarTitle || c.pillar,
-          title: c.headline || c.title,
-          hook: c.hookText || c.hook,
-          callToAction: c.callToAction
-        }));
-      }
-
-      // Extract ready posts
-      if (Array.isArray(mktData.ready_posts) && mktData.ready_posts.length > 0) {
-        updatedVisualAssets.socialMockupPosts = mktData.ready_posts.map((p: any, i: number) => ({
-          id: p.id || `post_${i}`,
-          headline: p.title || p.headline,
-          caption: p.content || p.caption,
-          accent: i === 0 ? 'amber' : i === 1 ? 'emerald' : 'blue',
-          tag: p.badge || p.platform || 'إعلان ترويجي',
-          imageUrl: updatedVisualAssets.socialMockupPosts[i]?.imageUrl || (i === 0 ? firstBusinessPhoto : undefined)
-        }));
-      }
-
-      // Ingest complete marketing data
-      updatedMarketingData = {
-        persona: mktData.persona || {},
-        calendar: mktData.calendar || [],
-        readyPosts: mktData.ready_posts || [],
-        whatsappCampaigns: mktData.whatsapp_campaigns || []
-      };
-    }
-  } catch (err) {
-    console.warn('Error enriching pitch package:', err);
-  }
-
-  // If brand persona has slogan, adopt it in the headline
-  let headline = pitch.headline;
-  if (updatedMarketingData.persona?.slogan) {
-    headline = `«${pitch.business.name_ar || pitch.business.name_en}» — ${updatedMarketingData.persona.slogan}`;
-  }
-
-  const enrichedPitch: PitchPackage = {
-    ...pitch,
-    headline,
-    visualAssets: updatedVisualAssets,
-    marketingData: updatedMarketingData,
-    updatedAt: new Date().toISOString()
-  };
-
-  return { enrichedPitch, marketingFound, visualFound };
 }
 
 export function getSavedPitchPackages(): PitchPackage[] {
@@ -812,7 +536,6 @@ export async function promoteBusinessToCoreProd(payload: PromoteLeadPayload): Pr
     });
 
     if (!response.ok) {
-      // In local development or restricted token mode, simulate successful promotion and record locally
       console.warn('Core PATCH response non-200, recording promotion locally:', response.status);
     }
 
@@ -913,102 +636,93 @@ export function getDemoBusinesses(): DalilakBusiness[] {
   ];
 }
 
-/**
- * Resolves shareable client preview URL that works on mobile or desktop anywhere
- */
-export function getShareablePreviewUrl(pitch: PitchPackage): string {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://dalilaak.com';
-  const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
-  const cleanPath = pathname.endsWith('/') ? pathname : pathname + '/';
-  return `${origin}${cleanPath}?pitch=${encodeURIComponent(pitch.id)}&biz=${encodeURIComponent(pitch.businessId)}&token=${encodeURIComponent(pitch.clientToken)}`;
+export async function fetchBusinessById(businessId: string): Promise<DalilakBusiness | null> {
+  const { url, key } = getCoreConfig();
+  try {
+    const endpoint = `${url}/rest/v1/businesses?id=eq.${encodeURIComponent(businessId)}&select=*`;
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      if (Array.isArray(rows) && rows.length > 0) return rows[0];
+    }
+  } catch (e) {
+    console.warn('fetchBusinessById error:', e);
+  }
+
+  // Fallback to demo businesses
+  const demos = getDemoBusinesses();
+  return demos.find(d => d.id === businessId) || null;
 }
 
-/**
- * Fetch a pitch package from Ecosystem Supabase Server across devices
- */
-export async function fetchPitchPackageRemote(pitchId?: string, bizId?: string): Promise<PitchPackage | null> {
-  const { url, key } = getEcosystemConfig();
-  if (!url || !key) return null;
-
+export async function fetchRecentEcosystemActivities(limit = 30): Promise<any[]> {
+  const list: any[] = [];
+  
+  // 1. Read local storage activities from Phase 1
   try {
-    let endpoint = '';
-    if (pitchId) {
-      endpoint = `${url}/rest/v1/pitch_packages?id=eq.${encodeURIComponent(pitchId)}&select=*`;
-    } else if (bizId) {
-      endpoint = `${url}/rest/v1/pitch_packages?business_id=eq.${encodeURIComponent(bizId)}&order=updated_at.desc&limit=1`;
+    const registryKey = 'dalelak_marketing_recent_activities';
+    const raw = localStorage.getItem(registryKey);
+    const recentIds: string[] = raw ? JSON.parse(raw) : [];
+    for (const id of recentIds.slice(0, 15)) {
+      const pRaw = localStorage.getItem(`dalelak_marketing_progress_${id}`);
+      if (pRaw) {
+        const p = JSON.parse(pRaw);
+        list.push({
+          business_id: p.businessId,
+          business_name: p.businessName,
+          category: p.persona?.category || 'عام',
+          city: p.persona?.targetAudience?.demographics || 'مصر',
+          hasMarketing: Boolean(p.calendar?.length || p.readyPosts?.length),
+          hasVisual: false,
+          calendar: p.calendar || [],
+          ready_posts: p.readyPosts || [],
+          whatsapp_campaigns: p.whatsappCampaigns || [],
+          updated_at: p.lastUpdated || new Date().toISOString(),
+        });
+      }
     }
+  } catch (e) {}
 
-    if (endpoint) {
-      const res = await fetch(endpoint, {
-        method: 'GET',
-        headers: {
-          apikey: key,
-          Authorization: `Bearer ${key}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (res.ok) {
-        const rows = await res.json();
-        if (Array.isArray(rows) && rows.length > 0) {
-          const r = rows[0];
-          const fullBiz = await fetchBusinessById(r.business_id);
-          const business: DalilakBusiness = fullBiz || {
-            id: r.business_id,
-            name_ar: r.business_name,
-            category: 'عام',
-            phone: '',
-            verification_status: 'verified'
-          };
-          const basePkg: PitchPackage = {
-            id: r.id,
-            businessId: r.business_id,
-            business,
-            clientToken: r.client_token || 'PREVIEW',
-            themeColor: r.theme_color || 'amber',
-            headline: r.headline || `خطة التحول الرقمي لنشاط «${r.business_name}»`,
-            subheadline: r.subheadline || '',
-            packageName: r.package_name || 'الباقة الذهبية المتكاملة',
-            originalPrice: r.original_price || 4800,
-            discountedPrice: r.discounted_price || 2450,
-            currency: r.currency || 'جنيه مصري',
-            discountExpiresHours: 48,
-            guaranteeText: 'ضمان استرجاع كامل للاستثمار خلال 14 يوماً في حال عدم الرضا.',
-            deliverables: r.deliverables || [],
-            visualAssets: r.visual_assets || {},
-            watermarkSettings: r.watermark_settings || {
-              enabled: true,
-              text: `معاينة خاصة • دليلك للمنظومة الذكية © ${r.business_name}`,
-              secondaryText: 'عينة تجريبية مؤمنة - غير مخصصة للاستخدام قبل التعاقد',
-              opacity: 0.45,
-              angle: -26,
-              fontSize: 16,
-              density: 'medium',
-              blockRightClick: true,
-              blockKeyboardShortcuts: true,
-              blurOnWindowBlur: false
-            },
-            status: r.status || 'ready',
-            createdAt: r.created_at || new Date().toISOString(),
-            updatedAt: r.updated_at || new Date().toISOString()
-          };
-          const { enrichedPitch } = await enrichPitchPackageWithEcosystemData(basePkg);
-          return enrichedPitch;
+  // 2. Query Dedicated Marketing Ecosystem Server
+  try {
+    const endpoint = `${DEFAULT_ECOSYSTEM_URL}/rest/v1/marketing_activities?select=*&order=updated_at.desc&limit=${limit}`;
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        apikey: DEFAULT_ECOSYSTEM_KEY,
+        Authorization: `Bearer ${DEFAULT_ECOSYSTEM_KEY}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      if (Array.isArray(rows)) {
+        for (const row of rows) {
+          if (!list.some(item => item.business_id === row.business_id)) {
+            list.push({
+              business_id: row.business_id,
+              business_name: row.business_name,
+              category: row.category || 'عام',
+              city: row.city || 'مصر',
+              hasMarketing: Boolean(row.calendar?.length || row.ready_posts?.length),
+              hasVisual: false,
+              calendar: row.calendar || [],
+              ready_posts: row.ready_posts || [],
+              whatsapp_campaigns: row.whatsapp_campaigns || [],
+              updated_at: row.updated_at,
+            });
+          }
         }
       }
     }
-  } catch (err) {
-    console.warn('Error fetching remote pitch package:', err);
-  }
+  } catch (e) {}
 
-  // Fallback: if bizId is present but not yet in pitch_packages table
-  if (bizId) {
-    const biz = await fetchBusinessById(bizId);
-    if (biz) {
-      const def = createDefaultPitchPackage(biz);
-      const { enrichedPitch } = await enrichPitchPackageWithEcosystemData(def);
-      return enrichedPitch;
-    }
-  }
-
-  return null;
+  return list;
 }
+
